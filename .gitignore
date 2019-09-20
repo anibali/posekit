@@ -1,0 +1,21 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python package artifacts
+*.egg-info/
+.eggs/
+
+# Miscellaneous Python artifacts
+.hypothesis
+.ipynb_checkpoints
+
+# Temporary files
+*.swp
+*~
+
+# IDE configuration
+.vscode
+.idea
+

@@ -1,0 +1,16 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pytest = ">=4.0.0"
+hypothesis = ">=4.0.0"
+
+[packages]
+numpy = ">=1.16.0"
+PyOpenGL = "==3.1.3b2"
+PyOpenGL-accelerate = "==3.1.3b1"
+
+[requires]
+python_version = "3.7"
