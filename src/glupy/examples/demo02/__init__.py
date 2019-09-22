@@ -2,52 +2,18 @@ import OpenGL.GL as gl
 from importlib import resources
 import numpy as np
 
-import glupy.examples
+import glupy.examples.demo02
 from glupy import mat4, OpenGlApp, VAO, ShaderProgram
 
 
-class Demo1(OpenGlApp):
-    def __init__(self):
-        super().__init__('Demo #1', 1600, 900)
-
-        vertex_code = resources.read_text(glupy.examples, 'simple.vert')
-        fragment_code = resources.read_text(glupy.examples, 'simple.frag')
-        self.program = ShaderProgram(vertex_code, fragment_code)
-
-        vertex_data = np.empty(4, [
-            ('position', np.float32, 3),
-            ('color', np.float32, 4),
-        ])
-
-        vertex_data['position'] = [(-1, +1, 0), (+1, +1, 0), (-1, -1, 0), (+1, -1, 0)]
-        vertex_data['color'] = [(0, 1, 0, 1), (1, 1, 0, 1), (1, 0, 0, 1), (0, 0, 1, 1)]
-
-        index_data = np.empty(2 * 3, dtype=np.uint32)
-        index_data[:] = [
-            0, 1, 2,
-            3, 1, 2,
-        ]
-
-        self.vao = VAO()
-        with self.vao:
-            self.vbo = self.vao.create_vbo(self.program, vertex_data)
-            self.vbo.transfer_data_to_gpu(vertex_data)
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(index_data)
-
-    def render(self):
-        with self.program, self.vao:
-            gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT, None)
-
-
-class Demo2(OpenGlApp):
+class Demo02(OpenGlApp):
     def __init__(self):
         super().__init__('Demo #2', 1600, 900)
 
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
 
-        vertex_code = resources.read_text(glupy.examples, 'simple.vert')
-        fragment_code = resources.read_text(glupy.examples, 'simple.frag')
+        vertex_code = resources.read_text(glupy.examples.demo02, 'demo02.vert')
+        fragment_code = resources.read_text(glupy.examples.demo02, 'demo02.frag')
         self.program = ShaderProgram(vertex_code, fragment_code)
 
         vertex_data = np.empty(8, [
@@ -115,9 +81,5 @@ class Demo2(OpenGlApp):
             gl.glDrawElements(gl.GL_TRIANGLES, 36, gl.GL_UNSIGNED_INT, None)
 
 
-def main():
-    Demo2().run()
-
-
 if __name__ == '__main__':
-    main()
+    Demo02().run()
