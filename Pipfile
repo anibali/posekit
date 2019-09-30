@@ -10,7 +10,6 @@ hypothesis = ">=4.0.0"
 [packages]
 numpy = ">=1.16.0"
 PyOpenGL = "==3.1.3b2"
-PyOpenGL-accelerate = "==3.1.3b1"
 
 [requires]
 python_version = "3.7"
