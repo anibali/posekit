@@ -1,0 +1,14 @@
+name: posekit
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7
+  - pip=19.2.3
+  - cudatoolkit=10.0.130=0
+  - ezc3d=1.1.1=py37h9de70de_0
+  - pytorch=1.2.0=py3.7_cuda10.0.130_cudnn7.6.2_0
+  - torchvision=0.4.0=py37_cu100
+  - pip:
+    - pipenv==2018.11.26
