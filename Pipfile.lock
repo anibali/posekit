@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e7cdd57432be0da1bb47d80da2aef41dd46e293dcedc2aaadcf5063b64fa6c34"
+            "sha256": "cda98bdc8d680fe86fc4f644ef96b763eb4c61bb4776f7814ac08855ec534704"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,6 +16,9 @@
         ]
     },
     "default": {
+        "class-registry": {
+            "file": "https://github.com/todofixthis/class-registry/archive/2.1.3.zip"
+        },
         "numpy": {
             "hashes": [
                 "sha256:05dbfe72684cc14b92568de1bc1f41e5f62b00f714afc9adee42f6311738091f",
@@ -44,6 +47,13 @@
             ],
             "index": "pypi",
             "version": "==3.1.3b2"
+        },
+        "toolz": {
+            "hashes": [
+                "sha256:08fdd5ef7c96480ad11c12d472de21acd32359996f69a5259299b540feba4560"
+            ],
+            "index": "pypi",
+            "version": "==0.10.0"
         }
     },
     "develop": {
@@ -56,18 +66,18 @@
         },
         "attrs": {
             "hashes": [
-                "sha256:69c0dbf2ed392de1cb5ec704444b08a5ef81680a61cb899dc08127123af36a79",
-                "sha256:f0b870f674851ecbfbbbd364d6b5cbdff9dcedbc7f3f5e18a6891057f21fe399"
+                "sha256:ec20e7a4825331c1b5ebf261d111e16fa9612c1f7a5e1f884f12bd53a664dfd2",
+                "sha256:f913492e1663d3c36f502e5e9ba6cd13cf19d7fab50aa13239e420fef95e1396"
             ],
-            "version": "==19.1.0"
+            "version": "==19.2.0"
         },
         "hypothesis": {
             "hashes": [
-                "sha256:854e09e070d0b90ff039b51d55d969920fd943963972a4da598d51016a039b5e",
-                "sha256:cad6f6066883650a61591ac197cd03b6b0611951aca8399d345e2b029437254b"
+                "sha256:2d0f5c69d939da4c2d6e1e686623c26a91087f3fc9077cd865013f532583dc05",
+                "sha256:d66286a7a67946d843b37c5656321ea3fd318c259dc0ed9aeb6f2d4b037b876a"
             ],
             "index": "pypi",
-            "version": "==4.37.0"
+            "version": "==4.38.1"
         },
         "importlib-metadata": {
             "hashes": [
@@ -119,6 +129,14 @@
             ],
             "index": "pypi",
             "version": "==5.2.0"
+        },
+        "pytest-mock": {
+            "hashes": [
+                "sha256:3fd5ffb33b7041aea60a77f77b98e05d5acd577d53a01bf2ff0ca9780c6e3d84",
+                "sha256:a89104018a4083b5c402e23b15b855924b74d9a3511e94f230a33621b72e35e1"
+            ],
+            "index": "pypi",
+            "version": "==1.11.0"
         },
         "six": {
             "hashes": [
