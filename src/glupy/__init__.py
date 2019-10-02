@@ -1,8 +1,7 @@
-import sys
-
 import OpenGL.GL as gl
 import OpenGL.GLUT as glut
 import numpy as np
+from time import perf_counter
 
 
 class ShaderProgram:
@@ -179,10 +178,20 @@ class OpenGlApp():
         glut.glutReshapeFunc(self._reshape)
         glut.glutDisplayFunc(self._display)
         glut.glutKeyboardFunc(self._keyboard)
+        glut.glutCloseFunc(self._close)
+        glut.glutIdleFunc(self._idle)
+        self.last_time = perf_counter()
+
+    def _idle(self):
+        glut.glutPostRedisplay()
 
     def _display(self):
+        cur_time = perf_counter()
+        dt = cur_time - self.last_time
+        self.last_time = cur_time
+
         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-        self.render()
+        self.render(dt)
         glut.glutSwapBuffers()
 
     def _reshape(self, width, height):
@@ -190,10 +199,16 @@ class OpenGlApp():
 
     def _keyboard(self, key, x, y):
         if key == b'\x1b':
-            sys.exit(0)
+            glut.glutLeaveMainLoop()
         self.on_key(key)
 
-    def render(self):
+    def _close(self):
+        self.on_close()
+
+    def on_close(self):
+        pass
+
+    def render(self, dt):
         pass
 
     def on_key(self, key):

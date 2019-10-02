@@ -36,7 +36,7 @@ class Demo1(OpenGlApp):
             self.ebo = self.vao.create_ebo()
             self.ebo.transfer_data_to_gpu(index_data)
 
-    def render(self):
+    def render(self, dt):
         with self.program, self.vao:
             gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT, None)
 

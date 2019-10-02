@@ -76,7 +76,7 @@ class Demo02(OpenGlApp):
             self.program.set_uniform_mat4('transView', trans_view)
             self.program.set_uniform_mat4('transProj', trans_proj)
 
-    def render(self):
+    def render(self, dt):
         with self.program, self.vao:
             gl.glDrawElements(gl.GL_TRIANGLES, 36, gl.GL_UNSIGNED_INT, None)
 
