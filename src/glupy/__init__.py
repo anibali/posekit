@@ -167,7 +167,47 @@ class EBO:
             gl.glDeleteBuffers(1, [self._ebo])
 
 
-class OpenGlApp():
+class Texture2d:
+    def __init__(self, shape):
+        self.target = gl.GL_TEXTURE_2D
+        self.handle = gl.glGenTextures(1)
+
+        h, w, c = shape
+
+        gl.glBindTexture(self.target, self.handle)
+        gl.glTexParameterf(self.target, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+        gl.glTexParameterf(self.target, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_R, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexImage2D(self.target, 0, gl.GL_RGBA, w, h, 0, gl.GL_RGBA,
+                        gl.GL_UNSIGNED_BYTE, None)
+        gl.glBindTexture(self.target, 0)
+
+        self.nbytes = h * w * c
+        self.shape = shape
+
+        self._prev_tex_binding = 0
+
+    def assert_bound(self):
+        assert gl.glGetIntegerv(gl.GL_TEXTURE_BINDING_2D) == self.handle
+
+    def bind(self):
+        gl.glBindTexture(self.target, self.handle)
+
+    def __enter__(self):
+        self._prev_tex_binding = gl.glGetIntegerv(gl.GL_TEXTURE_BINDING_2D)
+        self.bind()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        gl.glBindTexture(self.target, self._prev_tex_binding)
+
+    def __del__(self):
+        if gl.glDeleteTextures is not None:
+            gl.glDeleteTextures(1, [self.handle])
+
+
+class OpenGlApp:
     def __init__(self, title, width, height):
         glut.glutInit()
         glut.glutInitContextVersion(3, 3)
