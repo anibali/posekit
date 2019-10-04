@@ -34,6 +34,5 @@ def load_csv_mocap(filename):
             dts.append(t - prev_t)
         prev_t = t
     sample_rate = len(dts) / sum(dts)
-    print(sample_rate)
 
     return Mocap(np.stack(poses), skeleton_name, sample_rate)

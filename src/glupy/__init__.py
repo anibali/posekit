@@ -57,6 +57,11 @@ class ShaderProgram:
         loc = self.get_uniform_location(name)
         gl.glUniformMatrix4fv(loc, 1, False, value)
 
+    def set_uniform_vec4(self, name, value):
+        self.assert_current()
+        loc = self.get_uniform_location(name)
+        gl.glUniform4fv(loc, 1, value)
+
     def __enter__(self):
         self._prev_prog_binding = gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
         gl.glUseProgram(self._program)
@@ -235,6 +240,7 @@ class OpenGlApp:
         glut.glutSwapBuffers()
 
     def _reshape(self, width, height):
+        self.on_reshape(width, height)
         gl.glViewport(0, 0, width, height)
 
     def _keyboard(self, key, x, y):
@@ -244,6 +250,9 @@ class OpenGlApp:
 
     def _close(self):
         self.on_close()
+
+    def on_reshape(self, width, height):
+        pass
 
     def on_close(self):
         pass

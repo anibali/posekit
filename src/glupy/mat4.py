@@ -51,11 +51,24 @@ def scale(sx, sy=None, sz=None):
                      [ 0,  0, sz]])
 
 
-def perspective(fov, aspect, near, far):
-    c = 1 / np.tan(fov)
+def perspective(fov_y, aspect, near, far):
+    c = 1 / np.tan(fov_y / 2)
     return np.asarray([
         [c / aspect, 0, 0, 0],
         [0, -c, 0, 0],
         [0, 0, -(far + near) / (near - far), 2 * near * far / (near - far)],
         [0, 0, 1, 0],
     ])
+
+
+def look_at(eye, target, up):
+    camera_dir = target - eye
+    camera_dir /= np.linalg.norm(camera_dir, 2)
+    camera_right = np.cross(up, camera_dir)
+    camera_up = np.cross(camera_dir, camera_right)
+    view = np.eye(4)
+    view[0, :3] = camera_right
+    view[1, :3] = camera_up
+    view[2, :3] = camera_dir
+    view[:3, 3] = np.dot(view[:3, :3], -eye)
+    return view

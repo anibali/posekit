@@ -69,7 +69,7 @@ class Demo02(OpenGlApp):
         trans_model = mat4.scale(0.5) #@ mat4.rotate_axis_angle(0, 1/np.sqrt(2), 1/np.sqrt(2), np.pi / 4)
         trans_view = mat4.translate(2.0, 0, 5.0)
         # TODO: Adjust this when window is resized
-        trans_proj = mat4.perspective(np.pi/4, 16 / 9, 0.1, 100)
+        trans_proj = mat4.perspective(np.pi / 3, 16 / 9, 0.1, 100)
 
         with self.program:
             self.program.set_uniform_mat4('transModel', trans_model)
