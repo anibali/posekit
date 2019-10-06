@@ -1,7 +1,8 @@
+from time import perf_counter
+
 import OpenGL.GL as gl
 import OpenGL.GLUT as glut
 import numpy as np
-from time import perf_counter
 
 
 class ShaderProgram:
@@ -212,6 +213,49 @@ class Texture2d:
             gl.glDeleteTextures(1, [self.handle])
 
 
+import enum
+class Key(enum.Enum):
+    F1 = glut.GLUT_KEY_F1
+    F2 = glut.GLUT_KEY_F2
+    F3 = glut.GLUT_KEY_F3
+    F4 = glut.GLUT_KEY_F4
+    F5 = glut.GLUT_KEY_F5
+    F6 = glut.GLUT_KEY_F6
+    F7 = glut.GLUT_KEY_F7
+    F8 = glut.GLUT_KEY_F8
+    F9 = glut.GLUT_KEY_F9
+    F10 = glut.GLUT_KEY_F10
+    F11 = glut.GLUT_KEY_F11
+    F12 = glut.GLUT_KEY_F12
+    LEFT = glut.GLUT_KEY_LEFT
+    UP = glut.GLUT_KEY_UP
+    RIGHT = glut.GLUT_KEY_RIGHT
+    DOWN = glut.GLUT_KEY_DOWN
+    PAGE_UP = glut.GLUT_KEY_PAGE_UP
+    PAGE_DOWN = glut.GLUT_KEY_PAGE_DOWN
+    HOME = glut.GLUT_KEY_HOME
+    END = glut.GLUT_KEY_END
+    INSERT = glut.GLUT_KEY_INSERT
+
+
+class Keyboard:
+    def __init__(self):
+        self._down_keys = set()
+
+    def fire_key_down(self, key):
+        self._down_keys.add(key)
+
+    def fire_key_up(self, key):
+        self._down_keys.remove(key)
+
+    def is_down(self, key):
+        if isinstance(key, str):
+            key = key.encode()
+        if isinstance(key, Key):
+            key = key.value
+        return key in self._down_keys
+
+
 class OpenGlApp:
     def __init__(self, title, width, height):
         glut.glutInit()
@@ -222,9 +266,23 @@ class OpenGlApp:
         glut.glutReshapeWindow(width, height)
         glut.glutReshapeFunc(self._reshape)
         glut.glutDisplayFunc(self._display)
-        glut.glutKeyboardFunc(self._keyboard)
         glut.glutCloseFunc(self._close)
         glut.glutIdleFunc(self._idle)
+
+        self.keyboard = Keyboard()
+        glut.glutSetKeyRepeat(glut.GLUT_KEY_REPEAT_OFF)
+        def on_key_down(key, x, y):
+            if key == b'\x1b':  # Escape key
+                glut.glutLeaveMainLoop()
+            else:
+                self.keyboard.fire_key_down(key)
+        def on_key_up(key, x, y):
+            self.keyboard.fire_key_up(key)
+        glut.glutKeyboardFunc(on_key_down)
+        glut.glutSpecialFunc(on_key_down)
+        glut.glutKeyboardUpFunc(on_key_up)
+        glut.glutSpecialUpFunc(on_key_up)
+
         self.last_time = perf_counter()
 
     def _idle(self):
@@ -234,7 +292,7 @@ class OpenGlApp:
         cur_time = perf_counter()
         dt = cur_time - self.last_time
         self.last_time = cur_time
-
+        self.update(dt)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
         self.render(dt)
         glut.glutSwapBuffers()
@@ -242,11 +300,6 @@ class OpenGlApp:
     def _reshape(self, width, height):
         self.on_reshape(width, height)
         gl.glViewport(0, 0, width, height)
-
-    def _keyboard(self, key, x, y):
-        if key == b'\x1b':
-            glut.glutLeaveMainLoop()
-        self.on_key(key)
 
     def _close(self):
         self.on_close()
@@ -257,10 +310,10 @@ class OpenGlApp:
     def on_close(self):
         pass
 
-    def render(self, dt):
+    def update(self, dt):
         pass
 
-    def on_key(self, key):
+    def render(self, dt):
         pass
 
     def run(self):

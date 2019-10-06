@@ -65,6 +65,7 @@ def look_at(eye, target, up):
     camera_dir = target - eye
     camera_dir /= np.linalg.norm(camera_dir, 2)
     camera_right = np.cross(up, camera_dir)
+    camera_right /= np.linalg.norm(camera_right)
     camera_up = np.cross(camera_dir, camera_right)
     view = np.eye(4)
     view[0, :3] = camera_right

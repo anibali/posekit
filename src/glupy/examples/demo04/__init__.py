@@ -1,9 +1,10 @@
-import OpenGL.GL as gl
 from importlib import resources
+
+import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo04
-from glupy import mat4, OpenGlApp, VAO, ShaderProgram
+from glupy import mat4, OpenGlApp, VAO, ShaderProgram, Key
 from posekit.skeleton import skeleton_registry
 
 POSE = np.asarray(
@@ -102,7 +103,7 @@ class Demo04(OpenGlApp):
         fragment_code = resources.read_text(glupy.examples.demo04, 'demo04.frag')
         self.program = ShaderProgram(vertex_code, fragment_code)
 
-        self.camera_angle = 0
+        self.reset_camera()
 
         skeleton = skeleton_registry['mpii_16j']
         pose = (POSE - POSE[skeleton.root_joint_id])
@@ -112,21 +113,41 @@ class Demo04(OpenGlApp):
             if j != p:
                 self.bones.append(OctagonalBone(self.program, pose[j], pose[p]))
 
-        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([1000.0, 0, 0]), np.asarray([1.0, 0.0, 0.0, 1.0])))
-        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 1000.0, 0]), np.asarray([0.0, 1.0, 0.0, 1.0])))
-        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 0, 1000.0]), np.asarray([0.0, 0.0, 1.0, 1.0])))
+        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([200.0, 0, 0]), np.asarray([1.0, 0.0, 0.0, 1.0])))
+        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 200.0, 0]), np.asarray([0.0, 1.0, 0.0, 1.0])))
+        self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 0, 200.0]), np.asarray([0.0, 0.0, 1.0, 1.0])))
+
+    def reset_camera(self):
+        self.cam_azimuth = -np.pi / 2
+        self.cam_elevation = np.pi / 2
+        self.cam_radius = 2000.0
 
     def on_reshape(self, width, height):
         trans_proj = mat4.perspective(np.pi / 3, width / height, 1.0, 1e6)
         with self.program:
             self.program.set_uniform_mat4('transProj', trans_proj)
 
-    def render(self, dt):
-        self.camera_angle = np.fmod(self.camera_angle + dt, 2 * np.pi)
+    def update(self, dt):
+        camera_speed = 1.5
+        if self.keyboard.is_down(Key.LEFT):
+            self.cam_azimuth = np.fmod(self.cam_azimuth - camera_speed * dt, 2 * np.pi)
+        if self.keyboard.is_down(Key.RIGHT):
+            self.cam_azimuth = np.fmod(self.cam_azimuth + camera_speed * dt, 2 * np.pi)
+        if self.keyboard.is_down(Key.DOWN):
+            self.cam_elevation = np.fmax(self.cam_elevation - camera_speed * dt, 0.1)
+        if self.keyboard.is_down(Key.UP):
+            self.cam_elevation = np.fmin(self.cam_elevation + camera_speed * dt, np.pi - 0.1)
+        if self.keyboard.is_down(Key.PAGE_UP):
+            self.cam_radius = np.fmax((np.sqrt(self.cam_radius) - camera_speed * dt * 30) ** 2, 1000)
+        if self.keyboard.is_down(Key.PAGE_DOWN):
+            self.cam_radius = np.fmin((np.sqrt(self.cam_radius) + camera_speed * dt * 30) ** 2, 20000)
+        if self.keyboard.is_down(Key.HOME):
+            self.reset_camera()
 
-        cam_x = 2000.0 * np.cos(self.camera_angle)
-        cam_z = 2000.0 * np.sin(self.camera_angle)
-        cam_y = -1000.0
+    def render(self, dt):
+        cam_x = self.cam_radius * np.sin(self.cam_elevation) * np.cos(self.cam_azimuth)
+        cam_y = self.cam_radius * np.cos(self.cam_elevation)
+        cam_z = self.cam_radius * np.sin(self.cam_elevation) * np.sin(self.cam_azimuth)
         trans_view = mat4.look_at(np.asarray([cam_x, cam_y, cam_z]), np.asarray([0, 0, 0]), np.asarray([0, 1, 0]))
 
         with self.program:
