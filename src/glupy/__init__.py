@@ -241,19 +241,50 @@ class Key(enum.Enum):
 class Keyboard:
     def __init__(self):
         self._down_keys = set()
+        self._released_keys = set()
+        self._pressed_keys = set()
+        self._released_buffer = set()
+        self._pressed_buffer = set()
 
     def fire_key_down(self, key):
+        self._pressed_buffer.add(key)
         self._down_keys.add(key)
 
     def fire_key_up(self, key):
-        self._down_keys.remove(key)
+        if key in self._down_keys:
+            self._released_buffer.add(key)
+            self._down_keys.remove(key)
+
+    def _clean_key(self, key):
+        if isinstance(key, str):
+            return key.encode()
+        if isinstance(key, Key):
+            return key.value
+        return key
 
     def is_down(self, key):
-        if isinstance(key, str):
-            key = key.encode()
-        if isinstance(key, Key):
-            key = key.value
-        return key in self._down_keys
+        return self._clean_key(key) in self._down_keys
+
+    def is_up(self, key):
+        return not self.is_down(key)
+
+    def was_released(self, key):
+        return self._clean_key(key) in self._released_keys
+
+    def was_pressed(self, key):
+        return self._clean_key(key) in self._pressed_keys
+
+    def update(self, dt):
+        if len(self._released_buffer) > 0:
+            self._released_keys = self._released_buffer
+            self._released_buffer = set()
+        elif len(self._released_keys) > 0:
+            self._released_keys = set()
+        if len(self._pressed_buffer) > 0:
+            self._pressed_keys = self._pressed_buffer
+            self._pressed_buffer = set()
+        elif len(self._pressed_keys) > 0:
+            self._pressed_keys = set()
 
 
 class OpenGlApp:
@@ -292,6 +323,7 @@ class OpenGlApp:
         cur_time = perf_counter()
         dt = cur_time - self.last_time
         self.last_time = cur_time
+        self.keyboard.update(dt)
         self.update(dt)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
         self.render(dt)
