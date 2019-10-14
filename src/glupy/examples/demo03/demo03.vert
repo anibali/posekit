@@ -1,7 +1,7 @@
 #version 330 core
 
-attribute vec2 position;
-attribute vec2 texcoord;
+in vec2 position;
+in vec2 texcoord;
 out vec2 fragTexcoord;
 
 void main()

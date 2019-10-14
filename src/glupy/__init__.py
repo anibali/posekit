@@ -63,6 +63,11 @@ class ShaderProgram:
         loc = self.get_uniform_location(name)
         gl.glUniform4fv(loc, 1, value)
 
+    def set_uniform_float(self, name, value):
+        self.assert_current()
+        loc = self.get_uniform_location(name)
+        gl.glUniform1f(loc, value)
+
     def __enter__(self):
         self._prev_prog_binding = gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
         gl.glUseProgram(self._program)

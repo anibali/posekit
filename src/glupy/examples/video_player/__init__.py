@@ -9,7 +9,7 @@ from pycuda.gl import graphics_map_flags, RegisteredImage
 from tvl import VideoLoader
 
 import glupy.examples.video_player
-from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key
+from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, mat4
 
 
 class MappedTexture:
@@ -50,6 +50,10 @@ class VideoPlayer(OpenGlApp):
         w, h = 1280, 720
         super().__init__('Video player', w, h)
 
+        # Enable alpha blending.
+        gl.glEnable(gl.GL_BLEND)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+
         videos = [
             '/aisdata/processed/ltu-hp/20191007a/20191007a-calib-left.mkv',
             '/aisdata/processed/ltu-hp/20191007a/20191007a-calib-mid.mkv',
@@ -70,6 +74,8 @@ class VideoPlayer(OpenGlApp):
         self.paused = False
         self.playback_speed = 1
 
+        self.aspect_ratio = vls[0].width / vls[0].height
+
         # Ensure PyTorch CUDA is initialised (it is important that this happens _after_ PyCUDA
         # initialises its context, which is currently done via autoinit).
         assert torch.cuda.is_available()
@@ -87,13 +93,44 @@ class VideoPlayer(OpenGlApp):
             ('texcoord', np.float32, 2),
         ])
 
-        vertex_data['position'] = [(-1, -1), (-1, +1), (+1, -1), (+1, +1)]
-        vertex_data['texcoord'] = [(0, 1), (0, 0), (1, 1), (1, 0)]
+        vertex_data['position'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
+        vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
         self.vao = VAO()
         with self.vao:
-            self.vbo = self.vao.create_vbo(self.program, vertex_data)
-            self.vbo.transfer_data_to_gpu(vertex_data)
+            vbo = self.vao.create_vbo(self.program, vertex_data)
+            vbo.transfer_data_to_gpu(vertex_data)
+
+        self.seek_program = ShaderProgram(
+            resources.read_text(glupy.examples.video_player, 'image.vert'),
+            resources.read_text(glupy.examples.video_player, 'seekbar.frag'),
+        )
+
+        vertex_data = np.empty(4, [
+            ('position', np.float32, 2),
+            ('texcoord', np.float32, 2),
+        ])
+
+        bar_h = 10  # Seek bar height (in pixels)
+        vertex_data['position'] = [(0, 0), (0, bar_h), (1, 0), (1, bar_h)]
+        vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+        self.vao_seek = VAO()
+        with self.vao_seek:
+            vbo = self.vao_seek.create_vbo(self.seek_program, vertex_data)
+            vbo.transfer_data_to_gpu(vertex_data)
+
+    def on_reshape(self, width, height):
+        with self.program:
+            sx = max((width / height) / self.aspect_ratio, 1.0)
+            sy = max(self.aspect_ratio / (width / height), 1.0)
+            trans_proj = mat4.orthographic((1.0 - sx) / 2, 1.0 - (1.0 - sx) / 2,
+                                           1.0 - (1.0 - sy) / 2, (1.0 - sy) / 2)
+            self.program.set_uniform_mat4('transProj', trans_proj)
+
+        with self.seek_program:
+            trans_proj = mat4.orthographic(0, 1, 0, height)
+            self.seek_program.set_uniform_mat4('transProj', trans_proj)
 
     def on_close(self):
         # Pop the CUDA context created by PyCUDA.
@@ -160,6 +197,9 @@ class VideoPlayer(OpenGlApp):
                 self.image = vl.read_frame()
                 self.next_time += 1 / vl.frame_rate
 
+        with self.seek_program:
+            self.seek_program.set_uniform_float('progress', self.cur_time / (vl.duration - 0.1))
+
     def render(self, dt):
         # Update the texture (using GPU operations).
         if self.image is not None:
@@ -170,6 +210,9 @@ class VideoPlayer(OpenGlApp):
 
         # Render the texture on a quad.
         with self.program, self.vao, self.tex.gl_texture:
+            gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, 4)
+
+        with self.seek_program, self.vao_seek:
             gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, 4)
 
 
