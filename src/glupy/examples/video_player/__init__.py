@@ -9,7 +9,7 @@ from pycuda.gl import graphics_map_flags, RegisteredImage
 from tvl import VideoLoader
 
 import glupy.examples.video_player
-from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, mat4
+from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, mat4, MouseButton
 
 
 class MappedTexture:
@@ -47,18 +47,20 @@ class MappedTexture:
 
 class VideoPlayer(OpenGlApp):
     def __init__(self):
-        w, h = 1280, 720
-        super().__init__('Video player', w, h)
+        super().__init__('Video player', 1280, 720)
 
         # Enable alpha blending.
         gl.glEnable(gl.GL_BLEND)
         gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 
         videos = [
-            '/aisdata/processed/ltu-hp/20191007a/20191007a-calib-left.mkv',
-            '/aisdata/processed/ltu-hp/20191007a/20191007a-calib-mid.mkv',
-            '/aisdata/processed/ltu-hp/20191007a/20191007a-calib-right.mkv',
+            '/aisdata/processed/ltu-hp/20191011a/20191011a-calib-left.mkv',
+            '/aisdata/processed/ltu-hp/20191011a/20191011a-calib-mid.mkv',
+            '/aisdata/processed/ltu-hp/20191011a/20191011a-calib-right.mkv',
         ]
+
+        w = 1280
+        h = 720
 
         vls = [
             VideoLoader(video,
@@ -182,6 +184,13 @@ class VideoPlayer(OpenGlApp):
         if self.playback_speed < 0:
             self.next_time = -1
         vl = self.vls[self.cur_video_index]
+
+        if self.mouse.is_down(MouseButton.LEFT):
+            if self.mouse.down_y > self.window_height - 40:
+                seek_percent = self.mouse.x / self.window_width
+                self.cur_time = seek_percent * (vl.duration - 0.1)
+                self.next_time = -1
+
         if self.cur_time > vl.duration - 0.1:
             self.cur_time = 0
             self.next_time = -1
