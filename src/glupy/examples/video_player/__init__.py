@@ -59,13 +59,12 @@ class VideoPlayer(OpenGlApp):
             '/aisdata/processed/ltu-hp/20191011a/20191011a-calib-right.mkv',
         ]
 
-        w = 1280
-        h = 720
+        video_width = 1280
+        video_height = 720
 
         vls = [
-            VideoLoader(video,
-                        device='cuda', dtype=torch.uint8,
-                        backend_opts={'resize': (h, w)})
+            VideoLoader(video, device='cuda', dtype=torch.uint8,
+                        backend_opts={'resize': (video_height, video_width)})
             for video in videos
         ]
         self.cur_video_index = 0
@@ -76,7 +75,7 @@ class VideoPlayer(OpenGlApp):
         self.paused = False
         self.playback_speed = 1
 
-        self.aspect_ratio = vls[0].width / vls[0].height
+        self.aspect_ratio = video_width / video_height
 
         # Ensure PyTorch CUDA is initialised (it is important that this happens _after_ PyCUDA
         # initialises its context, which is currently done via autoinit).
@@ -84,7 +83,7 @@ class VideoPlayer(OpenGlApp):
         torch.empty(1, device='cuda')
 
         # Create a texture buffer with OpenGL and CUDA views
-        self.tex = MappedTexture(h, w)
+        self.tex = MappedTexture(video_height, video_width)
 
         vertex_code = resources.read_text(glupy.examples.video_player, 'image.vert')
         fragment_code = resources.read_text(glupy.examples.video_player, 'image.frag')
@@ -184,18 +183,19 @@ class VideoPlayer(OpenGlApp):
         if self.playback_speed < 0:
             self.next_time = -1
         vl = self.vls[self.cur_video_index]
+        duration = vl.duration - 0.1
 
         if self.mouse.is_down(MouseButton.LEFT):
             if self.mouse.down_y > self.window_height - 40:
                 seek_percent = self.mouse.x / self.window_width
-                self.cur_time = seek_percent * (vl.duration - 0.1)
+                self.cur_time = seek_percent * duration
                 self.next_time = -1
 
-        if self.cur_time > vl.duration - 0.1:
+        if self.cur_time > duration:
             self.cur_time = 0
             self.next_time = -1
         if self.cur_time < 0:
-            self.cur_time = vl.duration - 0.1
+            self.cur_time = duration
             self.next_time = -1
         if self.cur_time - self.next_time > 0.25:
             vl.seek(self.cur_time)
@@ -207,7 +207,7 @@ class VideoPlayer(OpenGlApp):
                 self.next_time += 1 / vl.frame_rate
 
         with self.seek_program:
-            self.seek_program.set_uniform_float('progress', self.cur_time / (vl.duration - 0.1))
+            self.seek_program.set_uniform_float('progress', self.cur_time / duration)
 
     def render(self, dt):
         # Update the texture (using GPU operations).
