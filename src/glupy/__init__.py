@@ -241,6 +241,7 @@ class Key(enum.Enum):
     HOME = glut.GLUT_KEY_HOME
     END = glut.GLUT_KEY_END
     INSERT = glut.GLUT_KEY_INSERT
+    DELETE = b'\x7f'
 
 
 class Keyboard:
