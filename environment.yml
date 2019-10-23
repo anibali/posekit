@@ -11,5 +11,3 @@ dependencies:
   - pytorch=1.2.0=py3.7_cuda10.0.130_cudnn7.6.2_0
   - torchvision=0.4.0=py37_cu100
   - swig=3.0.12=h38cdd7d_3
-  - pip:
-    - pipenv==2018.11.26

@@ -3,7 +3,8 @@ from importlib import resources
 import numpy as np
 
 import glupy.examples.demo02
-from glupy import mat4, OpenGlApp, VAO, ShaderProgram
+from glupy import OpenGlApp, VAO, ShaderProgram
+from glupy.math import mat4
 
 
 class Demo02(OpenGlApp):

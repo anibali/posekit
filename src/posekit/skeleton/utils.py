@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+from glupy.math import rigid_registration, to_cartesian, to_homogeneous
 from .common import Skeleton
 
 
@@ -31,38 +32,9 @@ def procrustes(ref_points, cor_points, points=None, *, reflection=False):
     Returns:
         (np.ndarray) The transformed points.
     """
-    if points is None:
-        points = cor_points
 
-    mtx1 = np.array(ref_points, dtype=np.double, copy=True)
-    mtx2 = np.array(cor_points, dtype=np.double, copy=True)
-
-    mean1 = np.mean(mtx1, 0)
-    mean2 = np.mean(mtx2, 0)
-    mtx1 -= mean1
-    mtx2 -= mean2
-
-    norm1 = np.linalg.norm(mtx1)
-    norm2 = np.linalg.norm(mtx2)
-    mtx1 /= norm1
-    mtx2 /= norm2
-
-    u, w, vt = np.linalg.svd(mtx2.T.dot(mtx1).T)
-    R = u.dot(vt)
-    s = w.sum()
-
-    if not reflection:
-        # Determinant of R will be either -1 or 1. A value of -1 means that the alignment
-        # opted to perform a reflection, which we will now undo.
-        vt[2, :] *= np.linalg.det(R)
-        R = u.dot(vt)
-
-    mtx3 = np.array(points, dtype=np.double, copy=True)
-    mtx3 -= mean2
-    mtx3 /= norm2
-    mtx3 = np.dot(mtx3, R.T) * s
-    mtx3 = (mtx3 * norm1) + mean1
-    return mtx3
+    T = rigid_registration(ref_points, cor_points, reflection)
+    return to_cartesian(to_homogeneous(points) @ T.T)
 
 
 def absolute_to_root_relative(joints: torch.Tensor, skeleton: Skeleton):

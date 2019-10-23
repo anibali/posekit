@@ -4,7 +4,8 @@ import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo04
-from glupy import mat4, OpenGlApp, VAO, ShaderProgram, Key
+from glupy import OpenGlApp, VAO, ShaderProgram, Key
+from glupy.math import mat4
 from posekit.skeleton import skeleton_registry
 
 POSE = np.asarray(

@@ -14,7 +14,8 @@ from pycuda.gl import graphics_map_flags, RegisteredImage
 from tvl import VideoLoader
 
 import glupy.examples.video_player
-from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, mat4, MouseButton
+from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, MouseButton
+from glupy.math import mat4
 
 
 class MappedTexture:
@@ -134,7 +135,7 @@ class VideoPlayer(OpenGlApp):
             vbo = self.vao_seek.create_vbo(self.seek_program, vertex_data)
             vbo.transfer_data_to_gpu(vertex_data)
 
-        self.clip_annot_path = Path(f'{base_name}-annots.json')
+        self.clip_annot_path = Path(f'{base_name}-clips.json')
         if self.clip_annot_path.is_file():
             with self.clip_annot_path.open('r') as f:
                 annots = json.load(f)

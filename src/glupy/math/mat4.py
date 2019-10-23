@@ -82,3 +82,10 @@ def look_at(eye, target, up):
     view[2, :3] = camera_dir
     view[:3, 3] = np.dot(view[:3, :3], -eye)
     return view
+
+
+def concatenate(matrices):
+    if len(matrices) == 1:
+        return matrices[0]
+    else:
+        return concatenate(matrices[1:]) @ matrices[0]
