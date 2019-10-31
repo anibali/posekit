@@ -1,4 +1,5 @@
 import ezc3d
+import numpy as np
 
 from posekit.io.mocap import Mocap
 from posekit.skeleton import skeleton_registry
@@ -13,7 +14,7 @@ def save_c3d_mocap(mocap: Mocap, filename):
     c3d['parameters']['POINT']['UNITS']['value'] = ['mm']
     c3d['parameters']['POINT']['LABELS']['value'] = skeleton.joint_names
     c3d.add_parameter('POINT', 'SKEL', [skeleton.name])
-    c3d['data']['points'] = mocap.joint_positions.transpose(2, 1, 0)
+    c3d['data']['points'] = mocap.joint_positions.transpose(2, 1, 0).astype(np.float64)
     c3d.write(filename)
 
 

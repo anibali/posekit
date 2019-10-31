@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from glupy.math import rigid_registration, to_cartesian, to_homogeneous
+from glupy.math import point_set_registration, to_cartesian, to_homogeneous
 from .common import Skeleton
 
 
@@ -33,7 +33,7 @@ def procrustes(ref_points, cor_points, points=None, *, reflection=False):
         (np.ndarray) The transformed points.
     """
 
-    T = rigid_registration(ref_points, cor_points, reflection)
+    T = point_set_registration(ref_points, cor_points, reflection)
     return to_cartesian(to_homogeneous(points) @ T.T)
 
 

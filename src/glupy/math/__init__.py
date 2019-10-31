@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from . import mat4
 
@@ -10,11 +11,15 @@ def to_cartesian(points):
 
 def to_homogeneous(points):
     """Convert from cartesian to homogeneous coordinates."""
-    return np.concatenate([points, np.ones_like(points[..., -1:])], -1)
+    if torch.is_tensor(points):
+        return torch.cat([points, torch.ones_like(points[..., -1:])], -1)
+    else:
+        return np.concatenate([points, np.ones_like(points[..., -1:])], -1)
 
 
-def rigid_registration(dest, src, reflection=False):
-    """Rigid point set registration solver."""
+def point_set_registration(dest, src, reflection=False):
+    """Point set registration solver. Allows translation, rotation, scaling, and (optionally)
+       reflection."""
     mtx1 = np.array(dest, dtype=np.double, copy=True)
     mtx2 = np.array(src, dtype=np.double, copy=True)
 
