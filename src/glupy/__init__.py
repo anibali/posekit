@@ -408,6 +408,9 @@ class OpenGlApp:
     def window_height(self):
         return self._height
 
+    def set_title(self, title):
+        glut.glutSetWindowTitle(str(title))
+
     def _idle(self):
         glut.glutPostRedisplay()
 
