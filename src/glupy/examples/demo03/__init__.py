@@ -76,10 +76,6 @@ class Demo3(OpenGlApp):
 
         self.theta = 0
 
-    def on_close(self):
-        # Pop the CUDA context created by PyCUDA.
-        pycuda.autoinit.context.pop()
-
     def render(self, dt):
         # Calculate the phase of the pulsating effect.
         self.theta = np.fmod(self.theta + 2 * dt, 2 * np.pi)

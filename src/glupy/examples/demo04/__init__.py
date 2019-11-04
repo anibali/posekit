@@ -118,6 +118,8 @@ class Demo04(OpenGlApp):
         self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 200.0, 0]), np.asarray([0.0, 1.0, 0.0, 1.0])))
         self.bones.append(OctagonalBone(self.program, np.zeros(3), np.asarray([0, 0, 200.0]), np.asarray([0.0, 0.0, 1.0, 1.0])))
 
+        self.on_reshape(self.window_width, self.window_height)
+
     def reset_camera(self):
         self.cam_azimuth = -np.pi / 2
         self.cam_elevation = np.pi / 2

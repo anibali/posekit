@@ -2,7 +2,7 @@ import enum
 from time import perf_counter
 
 import OpenGL.GL as gl
-import OpenGL.GLUT as glut
+import glfw
 import numpy as np
 
 
@@ -220,28 +220,37 @@ class Texture2d:
 
 
 class Key(enum.Enum):
-    F1 = glut.GLUT_KEY_F1
-    F2 = glut.GLUT_KEY_F2
-    F3 = glut.GLUT_KEY_F3
-    F4 = glut.GLUT_KEY_F4
-    F5 = glut.GLUT_KEY_F5
-    F6 = glut.GLUT_KEY_F6
-    F7 = glut.GLUT_KEY_F7
-    F8 = glut.GLUT_KEY_F8
-    F9 = glut.GLUT_KEY_F9
-    F10 = glut.GLUT_KEY_F10
-    F11 = glut.GLUT_KEY_F11
-    F12 = glut.GLUT_KEY_F12
-    LEFT = glut.GLUT_KEY_LEFT
-    UP = glut.GLUT_KEY_UP
-    RIGHT = glut.GLUT_KEY_RIGHT
-    DOWN = glut.GLUT_KEY_DOWN
-    PAGE_UP = glut.GLUT_KEY_PAGE_UP
-    PAGE_DOWN = glut.GLUT_KEY_PAGE_DOWN
-    HOME = glut.GLUT_KEY_HOME
-    END = glut.GLUT_KEY_END
-    INSERT = glut.GLUT_KEY_INSERT
-    DELETE = b'\x7f'
+    F1 = glfw.KEY_F1
+    F2 = glfw.KEY_F2
+    F3 = glfw.KEY_F3
+    F4 = glfw.KEY_F4
+    F5 = glfw.KEY_F5
+    F6 = glfw.KEY_F6
+    F7 = glfw.KEY_F7
+    F8 = glfw.KEY_F8
+    F9 = glfw.KEY_F9
+    F10 = glfw.KEY_F10
+    F11 = glfw.KEY_F11
+    F12 = glfw.KEY_F12
+    LEFT = glfw.KEY_LEFT
+    UP = glfw.KEY_UP
+    RIGHT = glfw.KEY_RIGHT
+    DOWN = glfw.KEY_DOWN
+    PAGE_UP = glfw.KEY_PAGE_UP
+    PAGE_DOWN = glfw.KEY_PAGE_DOWN
+    HOME = glfw.KEY_HOME
+    END = glfw.KEY_END
+    INSERT = glfw.KEY_INSERT
+    DELETE = glfw.KEY_DELETE
+
+
+class ModifierKey(enum.Enum):
+    SHIFT = glfw.MOD_SHIFT
+    CONTROL = glfw.MOD_CONTROL
+    ALT = glfw.MOD_ALT
+    SUPER = glfw.MOD_SUPER
+    CAPS_LOCK = glfw.MOD_CAPS_LOCK
+    NUM_LOCK = glfw.MOD_NUM_LOCK
 
 
 class Keyboard:
@@ -251,6 +260,7 @@ class Keyboard:
         self._pressed_keys = set()
         self._released_buffer = set()
         self._pressed_buffer = set()
+        self._modifiers = 0
 
     def fire_key_down(self, key):
         self._pressed_buffer.add(key)
@@ -261,9 +271,12 @@ class Keyboard:
             self._released_buffer.add(key)
             self._down_keys.remove(key)
 
+    def set_modifiers(self, mods):
+        self._modifiers = mods
+
     def _clean_key(self, key):
         if isinstance(key, str):
-            return key.encode()
+            return ord(key)
         if isinstance(key, Key):
             return key.value
         return key
@@ -280,6 +293,9 @@ class Keyboard:
     def was_pressed(self, key):
         return self._clean_key(key) in self._pressed_keys
 
+    def has_modifier(self, mod_key: ModifierKey):
+        return (self._modifiers & mod_key.value) != 0
+
     def update(self, dt):
         if len(self._released_buffer) > 0:
             self._released_keys = self._released_buffer
@@ -294,9 +310,9 @@ class Keyboard:
 
 
 class MouseButton(enum.Enum):
-    LEFT = glut.GLUT_LEFT_BUTTON
-    MIDDLE = glut.GLUT_MIDDLE_BUTTON
-    RIGHT = glut.GLUT_RIGHT_BUTTON
+    LEFT = glfw.MOUSE_BUTTON_LEFT
+    MIDDLE = glfw.MOUSE_BUTTON_MIDDLE
+    RIGHT = glfw.MOUSE_BUTTON_RIGHT
 
 
 class Mouse:
@@ -361,44 +377,23 @@ class OpenGlApp:
         self._width = width
         self._height = height
 
-        glut.glutInit()
-        glut.glutInitContextVersion(3, 3)
-        glut.glutInitContextProfile(glut.GLUT_CORE_PROFILE)
-        glut.glutInitDisplayMode(glut.GLUT_DOUBLE | glut.GLUT_RGBA)
-        glut.glutCreateWindow(title)
-        glut.glutReshapeWindow(width, height)
-        glut.glutReshapeFunc(self._reshape)
-        glut.glutDisplayFunc(self._display)
-        glut.glutCloseFunc(self._close)
-        glut.glutIdleFunc(self._idle)
+        if not glfw.init():
+            raise Exception('Failed to initialise GLFW.')
+
+        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+        self.window = glfw.create_window(width, height, title, None, None)
+        glfw.make_context_current(self.window)
+
+        glfw.set_window_size_callback(self.window, self._reshape)
+        glfw.set_window_close_callback(self.window, self._close)
+        glfw.set_key_callback(self.window, self._key)
+        glfw.set_mouse_button_callback(self.window, self._mouse_button)
+        glfw.set_cursor_pos_callback(self.window, self._cursor_pos)
 
         self.keyboard = Keyboard()
-        glut.glutSetKeyRepeat(glut.GLUT_KEY_REPEAT_OFF)
-        def on_key_down(key, x, y):
-            if key == b'\x1b':  # Escape key
-                glut.glutLeaveMainLoop()
-            else:
-                self.keyboard.fire_key_down(key)
-        def on_key_up(key, x, y):
-            self.keyboard.fire_key_up(key)
-        glut.glutKeyboardFunc(on_key_down)
-        glut.glutSpecialFunc(on_key_down)
-        glut.glutKeyboardUpFunc(on_key_up)
-        glut.glutSpecialUpFunc(on_key_up)
-
         self.mouse = Mouse()
-        def on_mouse_move(x, y):
-            self.mouse.fire_move(x, y)
-        def on_mouse_button(button, state, x, y):
-            if state == glut.GLUT_UP:
-                self.mouse.fire_button_up(button, x, y)
-            elif state == glut.GLUT_DOWN:
-                self.mouse.fire_button_down(button, x, y)
-        glut.glutMotionFunc(on_mouse_move)
-        glut.glutPassiveMotionFunc(on_mouse_move)
-        glut.glutMouseFunc(on_mouse_button)
-
-        self.last_time = perf_counter()
 
     @property
     def window_width(self):
@@ -409,30 +404,35 @@ class OpenGlApp:
         return self._height
 
     def set_title(self, title):
-        glut.glutSetWindowTitle(str(title))
+        glfw.set_window_title(self.window, str(title))
 
-    def _idle(self):
-        glut.glutPostRedisplay()
-
-    def _display(self):
-        cur_time = perf_counter()
-        dt = cur_time - self.last_time
-        self.last_time = cur_time
-        self.keyboard.update(dt)
-        self.mouse.update(dt)
-        self.update(dt)
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-        self.render(dt)
-        glut.glutSwapBuffers()
-
-    def _reshape(self, width, height):
+    def _reshape(self, window, width, height):
         self._width = width
         self._height = height
         self.on_reshape(width, height)
         gl.glViewport(0, 0, width, height)
 
-    def _close(self):
+    def _close(self, window):
         self.on_close()
+
+    def _key(self, window, key, scancode, action, mods):
+        self.keyboard.set_modifiers(mods)
+        if action == glfw.PRESS:
+            self.keyboard.fire_key_down(key)
+        if action == glfw.RELEASE:
+            self.keyboard.fire_key_up(key)
+        if key == glfw.KEY_ESCAPE:
+            glfw.set_window_should_close(self.window, True)
+            self._close(self.window)
+
+    def _mouse_button(self, window, button, action, mods):
+        if action == glfw.PRESS:
+            self.mouse.fire_button_down(button, *glfw.get_cursor_pos(self.window))
+        if action == glfw.RELEASE:
+            self.mouse.fire_button_up(button, *glfw.get_cursor_pos(self.window))
+
+    def _cursor_pos(self, window, x, y):
+        self.mouse.fire_move(x, y)
 
     def on_reshape(self, width, height):
         pass
@@ -447,4 +447,15 @@ class OpenGlApp:
         pass
 
     def run(self):
-        glut.glutMainLoop()
+        prev_time = perf_counter()
+        while not glfw.window_should_close(self.window):
+            cur_time = perf_counter()
+            dt = cur_time - prev_time
+            prev_time = cur_time
+            self.keyboard.update(dt)
+            self.mouse.update(dt)
+            self.update(dt)
+            gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+            self.render(dt)
+            glfw.swap_buffers(self.window)
+            glfw.poll_events()

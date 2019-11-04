@@ -4,6 +4,7 @@ pycuda==2019.1.2 --global-option='--conf:CUDA_ENABLE_GL=True'
 https://github.com/todofixthis/class-registry/archive/2.1.3.zip
 toolz==0.10.0
 tvl[NvdecBackend]==0.1.0b13
+glfw==1.8.3
 
 # Development dependencies
 pytest==5.2.0
