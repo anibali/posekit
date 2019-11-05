@@ -455,7 +455,7 @@ class OpenGlApp:
             self.keyboard.update(dt)
             self.mouse.update(dt)
             self.update(dt)
-            gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+            gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
             self.render(dt)
             glfw.swap_buffers(self.window)
             glfw.poll_events()
