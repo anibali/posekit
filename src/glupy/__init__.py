@@ -42,14 +42,20 @@ class ShaderProgram:
         gl.glDeleteShader(vertex)
         gl.glDeleteShader(fragment)
 
-        self._program = program
+        self._handle = program
         self._prev_prog_binding = 0
 
     def assert_current(self):
-        assert gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM) == self._program
+        assert gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM) == self._handle
+
+    def get_uniform_block_index(self, name):
+        index = gl.glGetUniformBlockIndex(self._handle, name)
+        if index < 0:
+            raise KeyError(f'uniform block not found: {name}')
+        return index
 
     def get_uniform_location(self, name):
-        loc = gl.glGetUniformLocation(self._program, name)
+        loc = gl.glGetUniformLocation(self._handle, name)
         if loc < 0:
             raise KeyError(f'uniform not found: {name}')
         return loc
@@ -71,30 +77,30 @@ class ShaderProgram:
 
     def __enter__(self):
         self._prev_prog_binding = gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
-        gl.glUseProgram(self._program)
+        gl.glUseProgram(self._handle)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         gl.glUseProgram(self._prev_prog_binding)
 
     def __del__(self):
-        if gl.glDeleteProgram is not None:
-            gl.glDeleteProgram(self._program)
+        if gl.glDeleteProgram is not None and hasattr(self, '_handle'):
+            gl.glDeleteProgram(self._handle)
 
 
 class VAO:
     def __init__(self):
-        self._vao = gl.glGenVertexArrays(1)
+        self._handle = gl.glGenVertexArrays(1)
         self._prev_vao_binding = 0
 
     def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING) == self._vao
+        assert gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING) == self._handle
 
     def create_vbo(self, program: ShaderProgram, data: np.ndarray):
         self.assert_bound()
         vbo = VBO()
         stride = data.strides[0]
         for name, (dtype, offset) in data.dtype.fields.items():
-            loc = gl.glGetAttribLocation(program._program, name)
+            loc = gl.glGetAttribLocation(program._handle, name)
             gl.glEnableVertexAttribArray(loc)
             if dtype.base == np.float32:
                 gl_type = gl.GL_FLOAT
@@ -115,30 +121,30 @@ class VAO:
 
     def __enter__(self):
         self._prev_vao_binding = gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING)
-        gl.glBindVertexArray(self._vao)
+        gl.glBindVertexArray(self._handle)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         gl.glBindVertexArray(self._prev_vao_binding)
 
     def __del__(self):
         if gl.glDeleteVertexArrays is not None:
-            gl.glDeleteVertexArrays(1, [self._vao])
+            gl.glDeleteVertexArrays(1, [self._handle])
 
 
 class VBO:
     def __init__(self):
-        self._vbo = gl.glGenBuffers(1)
+        self._handle = gl.glGenBuffers(1)
         self._prev_vbo_binding = 0
 
     def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING) == self._vbo
+        assert gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING) == self._handle
 
     def transfer_data_to_gpu(self, data: np.ndarray):
         self.assert_bound()
         gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
     def bind(self):
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self._vbo)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self._handle)
 
     def __enter__(self):
         self._prev_vbo_binding = gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING)
@@ -149,23 +155,23 @@ class VBO:
 
     def __del__(self):
         if gl.glDeleteBuffers is not None:
-            gl.glDeleteBuffers(1, [self._vbo])
+            gl.glDeleteBuffers(1, [self._handle])
 
 
 class EBO:
     def __init__(self):
-        self._ebo = gl.glGenBuffers(1)
+        self._handle = gl.glGenBuffers(1)
         self._prev_ebo_binding = 0
 
     def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING) == self._ebo
+        assert gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING) == self._handle
 
     def transfer_data_to_gpu(self, data: np.ndarray):
         self.assert_bound()
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
     def bind(self):
-        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self._ebo)
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self._handle)
 
     def __enter__(self):
         self._prev_ebo_binding = gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING)
@@ -176,7 +182,65 @@ class EBO:
 
     def __del__(self):
         if gl.glDeleteBuffers is not None:
-            gl.glDeleteBuffers(1, [self._ebo])
+            gl.glDeleteBuffers(1, [self._handle])
+
+
+class UniformBinding:
+    _AUTOINC_INDEX = 0
+
+    def __init__(self, block_name, block_fields):
+        self._index = self._AUTOINC_INDEX
+        self._AUTOINC_INDEX += 1
+        self.block_name = block_name
+        self.block_fields = block_fields
+
+    def bind_program(self, program):
+        gl.glUniformBlockBinding(program._handle, program.get_uniform_block_index(self.block_name),
+                                 self._index)
+
+    def bind_ubo(self, ubo):
+        gl.glBindBufferBase(gl.GL_UNIFORM_BUFFER, self._index, ubo._handle)
+
+    def create_ubo(self, bind=True):
+        ubo = UBO(self.block_fields)
+        if bind:
+            self.bind_ubo(ubo)
+        return ubo
+
+
+class UBO:
+    def __init__(self, fields):
+        self._cpu_data = np.zeros(1, dtype=fields)
+        self._handle = gl.glGenBuffers(1)
+        self._prev_ubo_binding = 0
+
+    def __setitem__(self, key, value):
+        self._cpu_data[key][0] = value
+
+    def __getitem__(self, key):
+        return self._cpu_data[key][0]
+
+    def assert_bound(self):
+        assert gl.glGetIntegerv(gl.GL_UNIFORM_BUFFER_BINDING) == self._handle
+
+    def flush(self):
+        self.assert_bound()
+        gl.glBufferData(gl.GL_UNIFORM_BUFFER, self._cpu_data.nbytes, self._cpu_data,
+                        gl.GL_DYNAMIC_DRAW)
+
+    def bind(self):
+        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self._handle)
+
+    def __enter__(self):
+        self._prev_ubo_binding = gl.glGetIntegerv(gl.GL_UNIFORM_BUFFER_BINDING)
+        self.bind()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self._prev_ubo_binding)
+
+    def __del__(self):
+        if gl.glDeleteBuffers is not None:
+            gl.glDeleteBuffers(1, [self._handle])
 
 
 class Texture2d:
@@ -373,7 +437,7 @@ class Mouse:
 
 
 class OpenGlApp:
-    def __init__(self, title, width, height):
+    def __init__(self, title, width, height, msaa=1):
         self._width = width
         self._height = height
 
@@ -383,6 +447,7 @@ class OpenGlApp:
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+        glfw.window_hint(glfw.SAMPLES, msaa)
         self.window = glfw.create_window(width, height, title, None, None)
         glfw.make_context_current(self.window)
 
