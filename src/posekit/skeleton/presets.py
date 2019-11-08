@@ -93,6 +93,65 @@ class Mpii16jSkeleton(Skeleton):
         )
 
 
+# Official COCO keypoint locations. This is a problematic representation since it does not
+# define a proper joint tree, and is missing the root joint.
+class Coco17jSkeleton(Skeleton):
+    name = 'coco_17j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+                'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow', 'left_wrist',
+                'right_wrist', 'left_hip', 'right_hip', 'left_knee', 'right_knee',
+                'left_ankle', 'right_ankle'
+            ],
+            joint_tree=[
+                0, 0, 0, 1, 2,
+                0, 0, 5, 6, 7,
+                8, 0, 0, 11, 12,
+                13, 14
+            ],
+            hflip_indices=[
+                0, 2, 1, 4, 3,
+                6, 5, 8, 7, 10,
+                9, 12, 11, 14, 13,
+                16, 15
+            ]
+        )
+
+    def root_joint_id(self):
+        return 0
+
+
+# This is an unofficial set of COCO keypoints which adds neck and pelvis joints, thus making the
+# skeleton a valid hierarchy including a root joint.
+class Coco19jSkeleton(Skeleton):
+    name = 'coco_19j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+                'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow', 'left_wrist',
+                'right_wrist', 'left_hip', 'right_hip', 'left_knee', 'right_knee',
+                'left_ankle', 'right_ankle', 'pelvis', 'neck'
+            ],
+            joint_tree=[
+                18, 0, 0, 1, 2,
+                18, 18, 5, 6, 7,
+                8, 17, 17, 11, 12,
+                13, 14, 17, 17
+            ],
+            hflip_indices=[
+                0, 2, 1, 4, 3,
+                6, 5, 8, 7, 10,
+                9, 12, 11, 14, 13,
+                16, 15, 17, 18
+            ]
+        )
+
+
 class Mpi3d17jSkeleton(Skeleton):
     name = 'mpi3d_17j'
 
@@ -222,3 +281,23 @@ def convert_mpi3d_17j_to_h36m_17j(joints, from_skeleton, to_skeleton):
         move_joint_farther_(dest_joints, to_skeleton, joint_name, 'spine', 0.07)
 
     return dest_joints
+
+
+@skeleton_converter.register('coco_17j', 'coco_19j')
+def convert_coco_17j_to_coco_19j(joints, from_skeleton, to_skeleton):
+    map = {
+        'pelvis': 'left_hip',
+        'neck': 'left_shoulder',
+    }
+    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
+    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+
+    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
+    move_joint_closer_(dest_joints, to_skeleton, 'neck', 'right_shoulder', 0.5)
+
+    return dest_joints
+
+
+@skeleton_converter.register('coco_19j', 'coco_17j')
+def convert_coco_19j_to_coco_17j(joints, from_skeleton, to_skeleton):
+    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
