@@ -306,6 +306,7 @@ class Key(enum.Enum):
     END = glfw.KEY_END
     INSERT = glfw.KEY_INSERT
     DELETE = glfw.KEY_DELETE
+    ENTER = glfw.KEY_ENTER
 
 
 class ModifierKey(enum.Enum):
@@ -340,7 +341,7 @@ class Keyboard:
 
     def _clean_key(self, key):
         if isinstance(key, str):
-            return ord(key)
+            return ord(key.upper())
         if isinstance(key, Key):
             return key.value
         return key
@@ -511,6 +512,9 @@ class OpenGlApp:
     def render(self, dt):
         pass
 
+    def quit(self):
+        glfw.set_window_should_close(self.window, True)
+
     def run(self):
         prev_time = perf_counter()
         while not glfw.window_should_close(self.window):
@@ -524,3 +528,4 @@ class OpenGlApp:
             self.render(dt)
             glfw.swap_buffers(self.window)
             glfw.poll_events()
+        glfw.terminate()
