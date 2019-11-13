@@ -488,8 +488,7 @@ class OpenGlApp:
         if action == glfw.RELEASE:
             self.keyboard.fire_key_up(key)
         if key == glfw.KEY_ESCAPE:
-            glfw.set_window_should_close(self.window, True)
-            self._close(self.window)
+            self.quit()
 
     def _mouse_button(self, window, button, action, mods):
         if action == glfw.PRESS:
@@ -512,8 +511,12 @@ class OpenGlApp:
     def render(self, dt):
         pass
 
+    def clean_up(self):
+        pass
+
     def quit(self):
         glfw.set_window_should_close(self.window, True)
+        self._close(self.window)
 
     def run(self):
         prev_time = perf_counter()
@@ -528,4 +531,5 @@ class OpenGlApp:
             self.render(dt)
             glfw.swap_buffers(self.window)
             glfw.poll_events()
+        self.clean_up()
         glfw.terminate()
