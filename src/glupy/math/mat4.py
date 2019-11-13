@@ -61,6 +61,23 @@ def perspective(fov_y, aspect, near, far):
     ])
 
 
+def perspective_from_intrinsics(fx, fy, cx, cy, near, far):
+    """Calculate an OpenGL perspective matrix from camera intrinsics.
+
+    Note that the intrinsic parameters are expected to be normalised already. That is:
+    * fx and cx should be divided by the image width.
+    * fy and cy should be divided by the image height.
+
+    Reference: https://blog.noctua-software.com/opencv-opengl-projection-matrix.html
+    """
+    return np.asarray([
+        [2.0 * fx, 0, -(1.0 - 2.0 * cx), 0],
+        [0, -2.0 * fy, 1.0 - 2.0 * cy, 0],
+        [0, 0, -(far + near) / (near - far), 2 * near * far / (near - far)],
+        [0, 0, 1, 0],
+    ])
+
+
 def orthographic(left, right, bottom, top):
     return np.asarray([
         [2 / (right - left), 0, 0, -(right + left) / (right - left)],
