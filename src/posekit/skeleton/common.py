@@ -38,6 +38,17 @@ class Skeleton(metaclass=AutoRegister(_registry)):
     def joint_index(self, joint_name):
         return self.joint_names.index(joint_name)
 
+    def topological_ordering(self):
+        topo_joints = []
+        nodes = [self.root_joint_id]
+        while len(nodes) > 0:
+            node = nodes.pop()
+            for i in range(self.n_joints):
+                if i != node and self.joint_tree[i] == node:
+                    nodes.insert(0, i)
+            topo_joints.append(node)
+        return topo_joints
+
     @property
     def n_joints(self):
         """The number of joints in the skeleton."""
