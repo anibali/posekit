@@ -214,6 +214,32 @@ class Mpi3d28jSkeleton(Skeleton):
         )
 
 
+class Aspset17jSkeleton(Skeleton):
+    name = 'aspset_17j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'right_ankle',      'right_knee',       'right_hip',
+                'right_wrist',      'right_elbow',      'right_shoulder',
+                'left_ankle',       'left_knee',        'left_hip',
+                'left_wrist',       'left_elbow',       'left_shoulder',
+                'head_top',         'head',             'neck',
+                'spine',            'pelvis',
+            ],
+            joint_tree=[
+                1, 2, 16, 4, 5, 14,
+                7, 8, 16, 10, 11, 14,
+                13, 14, 15, 16, 16,
+            ],
+            hflip_indices=[
+                6, 7, 8, 9, 10, 11,
+                0, 1, 2, 3, 4, 5,
+                12, 13, 14, 15, 16,
+            ]
+        )
+
+
 def setup_canonical_skeleton_alias(aliased_skeleton_class):
     class CanonicalSkeleton(aliased_skeleton_class):
         name = 'canonical'
