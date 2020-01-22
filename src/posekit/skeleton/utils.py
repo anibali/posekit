@@ -37,14 +37,33 @@ def procrustes(ref_points, cor_points, points=None, *, reflection=False):
     return to_cartesian(to_homogeneous(points) @ T.T)
 
 
-def absolute_to_root_relative(joints: torch.Tensor, skeleton: Skeleton):
+def absolute_to_root_relative(joints, skeleton: Skeleton):
     assert_plausible_skeleton(joints, skeleton)
     root_pos = joints[..., skeleton.root_joint_id:skeleton.root_joint_id+1, :]
     return joints - root_pos
 
 
-def absolute_to_parent_relative(joints: torch.Tensor, skeleton: Skeleton):
-    return joints - joints[..., skeleton.joint_tree, :]
+def absolute_to_parent_relative(joints, skeleton: Skeleton):
+    if torch.is_tensor(joints):
+        relative = joints.clone()
+    else:
+        relative = joints.copy()
+    parented_joints = [j for j, p in enumerate(skeleton.joint_tree) if j != p]
+    relative[..., parented_joints, :] -= joints[..., skeleton.joint_tree, :][..., parented_joints, :]
+    return relative
+
+
+def parent_relative_to_absolute(relative, skeleton: Skeleton):
+    if torch.is_tensor(relative):
+        absolute = relative.clone()
+    else:
+        absolute = relative.copy()
+    for j in skeleton.topological_ordering():
+        parent = skeleton.joint_tree[j]
+        if j == parent:
+            continue
+        absolute[..., j, :] = absolute[..., parent, :] + relative[..., j, :]
+    return absolute
 
 
 def joints_to_kcs(joints, skeleton: Skeleton):
@@ -57,6 +76,39 @@ def joints_to_limb_lengths(joints, skeleton: Skeleton):
     cartesian = absolute_to_parent_relative(joints, skeleton)
     r = (cartesian ** 2).sum(-1)[..., None] ** 0.5
     return r
+
+
+def cartesian_to_spherical(cartesian):
+    x = cartesian[..., 0]
+    y = cartesian[..., 1]
+    z = cartesian[..., 2]
+    r = (cartesian ** 2).sum(-1) ** 0.5
+    if torch.is_tensor(cartesian):
+        theta = (z / r).acos()
+        phi = torch.atan2(y, x)
+        return torch.stack([r, theta, phi], -1)
+    else:
+        theta = np.arccos(z / r)
+        phi = np.arctan2(y, x)
+        return np.stack([r, theta, phi], axis=-1)
+
+
+def spherical_to_cartesian(spherical):
+    r = spherical[..., 0]
+    theta = spherical[..., 1]
+    phi = spherical[..., 2]
+    if torch.is_tensor(spherical):
+        sin_theta = theta.sin()
+        x = r * sin_theta * phi.cos()
+        y = r * sin_theta * phi.sin()
+        z = r * theta.cos()
+        return torch.stack([x, y, z], -1)
+    else:
+        sin_theta = np.sin(theta)
+        x = r * sin_theta * np.cos(phi)
+        y = r * sin_theta * np.sin(phi)
+        z = r * np.cos(theta)
+        return np.stack([x, y, z], axis=-1)
 
 
 UNIVERSAL_TORSO = np.array([
