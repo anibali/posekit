@@ -10,7 +10,7 @@ from pycuda.gl import graphics_map_flags, RegisteredImage
 from tvl import VideoLoader
 
 import glupy.examples.video_player
-from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, MouseButton, ModifierKey
+from glupy.gl import VAO, ShaderProgram, OpenGlApp, Texture2d, Key, MouseButton, ModifierKey
 from glupy.math import mat4
 
 

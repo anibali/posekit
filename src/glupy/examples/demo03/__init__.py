@@ -8,7 +8,7 @@ import torch
 from pycuda.gl import graphics_map_flags, RegisteredImage
 
 import glupy.examples.demo03
-from glupy import VAO, ShaderProgram, OpenGlApp, Texture2d
+from glupy.gl import VAO, ShaderProgram, OpenGlApp, Texture2d
 
 
 class MappedTexture:

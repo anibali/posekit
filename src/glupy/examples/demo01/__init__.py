@@ -4,7 +4,7 @@ import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo01
-from glupy import OpenGlApp, VAO, ShaderProgram
+from glupy.gl import OpenGlApp, VAO, ShaderProgram
 
 
 class Demo1(OpenGlApp):
