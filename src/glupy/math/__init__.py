@@ -17,6 +17,20 @@ def to_homogeneous(points):
         return np.concatenate([points, np.ones_like(points[..., -1:])], -1)
 
 
+def ensure_homogeneous(points, d):
+    if points.shape[-1] == d + 1:
+        return points
+    assert points.shape[-1] == d
+    return to_homogeneous(points)
+
+
+def ensure_cartesian(points, d):
+    if points.shape[-1] == d:
+        return points
+    assert points.shape[-1] == d + 1
+    return to_cartesian(points)
+
+
 def point_set_registration(dest, src, reflection=False):
     """Point set registration solver. Allows translation, rotation, scaling, and (optionally)
        reflection."""

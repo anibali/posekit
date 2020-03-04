@@ -2,8 +2,7 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 from numpy.testing import assert_allclose
-
-from posekit.io import Mocap, save_mocap, load_mocap
+from posekit.io import Mocap, save_mocap
 from posekit.io.c3d_mocap import save_c3d_mocap, load_c3d_mocap
 
 

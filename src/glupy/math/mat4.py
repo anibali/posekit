@@ -106,3 +106,15 @@ def concatenate(matrices):
         return matrices[0]
     else:
         return concatenate(matrices[1:]) @ matrices[0]
+
+
+def is_similarity(matrix, eps=1e-12):
+    """Check whether the matrix represents a similarity transformation.
+
+    Under a similarity transformation, relative lengths and angles remain unchanged.
+    """
+    A = matrix[:-1, :-1]
+    v = matrix[-1]
+    _, s, _ = np.linalg.svd(A)
+    return np.max(s) - np.min(s) < eps \
+           and (np.abs(v - np.asarray([0, 0, 0, 1], v.dtype)) < eps).all()
