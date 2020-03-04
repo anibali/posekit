@@ -327,3 +327,26 @@ def convert_coco_17j_to_coco_19j(joints, from_skeleton, to_skeleton):
 @skeleton_converter.register('coco_19j', 'coco_17j')
 def convert_coco_19j_to_coco_17j(joints, from_skeleton, to_skeleton):
     return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+
+
+@skeleton_converter.register('mpii_16j', 'aspset_17j')
+def convert_mpii_16j_to_aspset_17j(joints, from_skeleton, to_skeleton):
+    head = 0.33 * joints[..., from_skeleton.joint_index('head_top'), :] + 0.67 * joints[..., from_skeleton.joint_index('neck'), :]
+    pelvis = 0.84 * joints[..., from_skeleton.joint_index('pelvis'), :] + 0.48 * joints[..., from_skeleton.joint_index('spine'), :] + -0.32 * joints[..., from_skeleton.joint_index('neck'), :]
+    spine = 0.53 * joints[..., from_skeleton.joint_index('pelvis'), :] + 0.66 * joints[..., from_skeleton.joint_index('spine'), :] + -0.20 * joints[..., from_skeleton.joint_index('neck'), :]
+    joint_names = ['neck' if s == 'head' else s for s in to_skeleton.joint_names]
+    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+    dest_joints[..., to_skeleton.joint_index('head'), :] = head
+    dest_joints[..., to_skeleton.joint_index('pelvis'), :] = pelvis
+    dest_joints[..., to_skeleton.joint_index('spine'), :] = spine
+    return dest_joints
+
+
+@skeleton_converter.register('aspset_17j', 'mpii_16j')
+def convert_aspset_17j_to_mpii_16j(joints, from_skeleton, to_skeleton):
+    pelvis = 0.5 * joints[..., from_skeleton.joint_index('left_hip'), :] + 0.5 * joints[..., from_skeleton.joint_index('right_hip'), :]
+    spine = 0.25 * joints[..., from_skeleton.joint_index('pelvis'), :] + -0.14 * joints[..., from_skeleton.joint_index('spine'), :] + 0.89 * joints[..., from_skeleton.joint_index('neck'), :]
+    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+    dest_joints[..., to_skeleton.joint_index('pelvis'), :] = pelvis
+    dest_joints[..., to_skeleton.joint_index('spine'), :] = spine
+    return dest_joints
