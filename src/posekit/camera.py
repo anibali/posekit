@@ -8,6 +8,8 @@ class CameraIntrinsics:
 
     def __init__(self, matrix):
         matrix = cast_array(matrix, np.float64)
+        if matrix.shape == (3, 3):
+            matrix = np.concatenate([matrix, np.zeros((3, 1))], 1)
         assert matrix.shape == (3, 4), 'intrinsic matrix must be 3x4'
         self.matrix = matrix
 

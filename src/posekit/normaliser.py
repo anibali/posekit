@@ -145,6 +145,6 @@ def infer_z_depth(norm_points, eval_scale, intrinsics, height, width, z_min=None
     if z_min is None:
         z_min = max(intrinsics.alpha_x, intrinsics.alpha_y)
     if z_max is None:
-        z_max = 10000
+        z_max = 20000
     z_ref = float(optimize.fminbound(f, z_min, z_max, maxfun=200, disp=0))
     return z_ref

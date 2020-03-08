@@ -113,7 +113,8 @@ class ImageTransformer(MatrixBasedTransformer):
             image = adjust_hue(image, self.hue)
         return image
 
-    def _transform_image(self, image, inverse=False):
+    @property
+    def centred_matrix(self):
         ow, oh = self.dest_size.tolist()
         matrix = mat3.concatenate([
             # Move principle point to origin
@@ -123,6 +124,10 @@ class ImageTransformer(MatrixBasedTransformer):
             # Restore principal point
             mat3.translate(self.x0 * ow / self.orig_width, self.y0 * oh / self.orig_height),
         ])
+        return matrix
+
+    def _transform_image(self, image, inverse=False):
+        matrix = self.centred_matrix
 
         if inverse:
             matrix = np.linalg.inv(matrix)
