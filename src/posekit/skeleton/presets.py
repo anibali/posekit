@@ -287,6 +287,15 @@ def convert_mpii_16j_to_h36m_17j(joints, from_skeleton, to_skeleton):
     return dest_joints
 
 
+@skeleton_converter.register('h36m_17j', 'mpii_16j')
+def convert_h36m_17j_to_mpii_16j(joints, from_skeleton, to_skeleton):
+    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+
+    move_joint_farther_(dest_joints, to_skeleton, 'spine', 'pelvis', 0.47)
+
+    return dest_joints
+
+
 @skeleton_converter.register('h36m_17j', 'mpi3d_17j')
 def convert_h36m_17j_to_mpi3d_17j(joints, from_skeleton, to_skeleton):
     dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
