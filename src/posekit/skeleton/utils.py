@@ -1,7 +1,9 @@
+from typing import Callable
+
 import numpy as np
 import torch
 
-from glupy.math import point_set_registration, to_cartesian, to_homogeneous
+from glupy.math import point_set_registration, to_cartesian, to_homogeneous, ensure_cartesian
 from .common import Skeleton
 
 
@@ -136,8 +138,7 @@ def universal_orientation(joints_3d, skeleton: Skeleton):
         joints_3d[skeleton.joint_names.index('right_hip')],
     ])
     new_joints_3d = procrustes(UNIVERSAL_TORSO, torso, joints_3d, reflection=False)
-    new_joints_3d -= new_joints_3d[skeleton.root_joint_id]
-    return new_joints_3d
+    return new_joints_3d - new_joints_3d[skeleton.root_joint_id]
 
 
 def flip_joints(joints, skeleton: Skeleton):
@@ -148,3 +149,49 @@ def flip_joints(joints, skeleton: Skeleton):
 
 def average_flipped_joints(joints, flipped_joints, skeleton: Skeleton):
     return (joints + flip_joints(flipped_joints, skeleton)) / 2
+
+
+def calculate_knee_neck_height(joints_3d, joint_names):
+    """Calculate skeleton height from left knee to neck via the spine joint.
+
+    This function is based on a code snippet provided courtesy of Dushyant Mehta.
+
+    Args:
+        joints_3d (torch.Tensor): The 3D joint positions.
+        joint_names (list): List of joint names for the skeleton.
+
+    Returns:
+        The knee-neck height of the skeleton.
+    """
+
+    left_knee = joint_names.index('left_knee')
+    left_hip = joint_names.index('left_hip')
+    spine = joint_names.index('spine')
+    pelvis = joint_names.index('pelvis')
+    neck = joint_names.index('neck')
+
+    joints_3d = ensure_cartesian(joints_3d, d=3)
+
+    return sum([
+        (joints_3d[left_knee] - joints_3d[left_hip]).norm(2).item(),
+        (joints_3d[spine] - joints_3d[pelvis]).norm(2).item(),
+        (joints_3d[neck] - joints_3d[spine]).norm(2).item(),
+    ])
+
+
+def make_eval_scale_skeleton_height(skeleton, untransform, target_height=920):
+    """Make a function for evaluating the scale of poses relative to a known height.
+
+    Args:
+        skeleton (Skeleton): The skeleton description.
+        untransform (Callable): Function for untransforming the 3D joints.
+        target_height (float): Desired person height in mm (from knee to neck).
+
+    Returns:
+        Function for evaluating the scale of a pose.
+    """
+    joint_names = skeleton.joint_names
+    def eval_scale(test_skel):
+        skel = untransform(test_skel)
+        return target_height / (calculate_knee_neck_height(skel, joint_names) + 1e-12)
+    return eval_scale
