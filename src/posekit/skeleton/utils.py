@@ -5,6 +5,7 @@ import torch
 
 from glupy.math import point_set_registration, to_cartesian, to_homogeneous, ensure_cartesian
 from .common import Skeleton
+from ..utils import cast_array
 
 
 def assert_plausible_skeleton(joints, skeleton: Skeleton):
@@ -32,13 +33,13 @@ def procrustes(ref_points, cor_points, points=None, *, reflection=False):
         reflection: If set to `True`, permit reflections in the transform.
 
     Returns:
-        (np.ndarray) The transformed points.
+        The transformed points.
     """
 
     if points is None:
         points = cor_points
     T = point_set_registration(ref_points, cor_points, reflection)
-    return to_cartesian(to_homogeneous(points) @ T.T)
+    return to_cartesian(to_homogeneous(points) @ cast_array(T.T, points))
 
 
 def absolute_to_root_relative(joints, skeleton: Skeleton):
