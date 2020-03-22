@@ -213,6 +213,29 @@ class Mpi3d28jSkeleton(Skeleton):
             ]
         )
 
+# Subset of mpi3d_28j used for evaluation in the VNect paper.
+class Vnect14jSkeleton(Skeleton):
+    name = 'vnect_14j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'head_top', 'neck', 'right_shoulder', 'right_elbow', 'right_wrist',
+                'left_shoulder', 'left_elbow', 'left_wrist', 'right_hip', 'right_knee',
+                'right_ankle', 'left_hip', 'left_knee', 'left_ankle'
+            ],
+            joint_tree=[
+                1, 1, 1, 2, 3,
+                1, 5, 6, 1, 8,
+                9, 1, 11, 12
+            ],
+            hflip_indices=[
+                0, 1, 5, 6, 7,
+                2, 3, 4, 11, 12,
+                13, 8, 9, 10
+            ]
+        )
+
 
 class Aspset17jSkeleton(Skeleton):
     name = 'aspset_17j'
@@ -268,6 +291,11 @@ def convert_h36m_32j_to_h36m_17j(joints, from_skeleton, to_skeleton):
 
 @skeleton_converter.register('mpi3d_28j', 'mpi3d_17j')
 def convert_mpi3d_28j_to_mpi3d_17j(joints, from_skeleton, to_skeleton):
+    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+
+
+@skeleton_converter.register('mpi3d_17j', 'vnect_14j')
+def convert_mpi3d_17j_to_vnect_14j(joints, from_skeleton, to_skeleton):
     return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
 
 

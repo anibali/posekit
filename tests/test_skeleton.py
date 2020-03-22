@@ -17,7 +17,7 @@ def test_conversion_between_mpi3d_17j_and_h36m_17j():
 
 @pytest.mark.parametrize('src_skeleton_name', skeleton_registry._registry.keys())
 def test_convert_to_canonical(src_skeleton_name):
-    if src_skeleton_name in {'coco_17j', 'coco_19j'}:
+    if src_skeleton_name in {'coco_17j', 'coco_19j', 'vnect_14j'}:
         pytest.skip()
     skeleton = skeleton_registry[src_skeleton_name]
     joints = torch.randn(skeleton.n_joints, 3)
