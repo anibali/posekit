@@ -263,6 +263,66 @@ class Aspset17jSkeleton(Skeleton):
         )
 
 
+class Lsp14jSkeleton(Skeleton):
+    name = 'lsp_14j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'right_ankle', 'right_knee', 'right_hip',
+                'left_hip', 'left_knee', 'left_ankle',
+                'right_wrist', 'right_elbow', 'right_shoulder',
+                'left_shoulder', 'left_elbow', 'left_wrist',
+                'neck', 'head_top',
+            ],
+            joint_tree=[
+                1, 2, 12,
+                12, 3, 4,
+                7, 8, 12,
+                12, 9, 10,
+                12, 12
+            ],
+            hflip_indices=[
+                5, 4, 3,
+                2, 1, 0,
+                11, 10, 9,
+                8, 7, 6,
+                12, 13
+            ]
+        )
+
+
+# This is an unofficial set of LSP keypoints which adds a pelvis joint, thus making the
+# skeleton a valid hierarchy including a root joint.
+class Lsp15jSkeleton(Skeleton):
+    name = 'lsp_15j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'right_ankle', 'right_knee', 'right_hip',
+                'left_hip', 'left_knee', 'left_ankle',
+                'right_wrist', 'right_elbow', 'right_shoulder',
+                'left_shoulder', 'left_elbow', 'left_wrist',
+                'neck', 'head_top', 'pelvis',
+            ],
+            joint_tree=[
+                1, 2, 14,
+                14, 3, 4,
+                7, 8, 12,
+                12, 9, 10,
+                14, 12, 14,
+            ],
+            hflip_indices=[
+                5, 4, 3,
+                2, 1, 0,
+                11, 10, 9,
+                8, 7, 6,
+                12, 13, 14
+            ]
+        )
+
+
 def setup_canonical_skeleton_alias(aliased_skeleton_class):
     class CanonicalSkeleton(aliased_skeleton_class):
         name = 'canonical'
@@ -386,4 +446,35 @@ def convert_aspset_17j_to_mpii_16j(joints, from_skeleton, to_skeleton):
     dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
     dest_joints[..., to_skeleton.joint_index('pelvis'), :] = pelvis
     dest_joints[..., to_skeleton.joint_index('spine'), :] = spine
+    return dest_joints
+
+
+@skeleton_converter.register('lsp_14j', 'lsp_15j')
+def convert_lsp_14j_to_lsp_15j(joints, from_skeleton, to_skeleton):
+    map = {
+        'pelvis': 'left_hip',
+    }
+    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
+    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+
+    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
+
+    return dest_joints
+
+
+@skeleton_converter.register('lsp_15j', 'lsp_14j')
+def convert_lsp_15j_to_lsp_14j(joints, from_skeleton, to_skeleton):
+    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+
+
+@skeleton_converter.register('lsp_15j', 'mpii_16j')
+def convert_lsp_15j_to_mpii_16j(joints, from_skeleton, to_skeleton):
+    map = {
+        'spine': 'neck',
+    }
+    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
+    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+
+    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'pelvis', 0.2)
+
     return dest_joints
