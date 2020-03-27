@@ -13,3 +13,4 @@ dependencies:
   - swig=3.0.12=h38cdd7d_3
   - glfw=3.3
   - scipy=1.4.1
+  - cmake=3.14.0

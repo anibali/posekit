@@ -5,7 +5,7 @@ PyOpenGL-accelerate==3.1.5
 pycuda==2019.1.2 --global-option='--conf:CUDA_ENABLE_GL=True'
 phx-class-registry==3.0.5
 toolz==0.10.0
-tvl[NvdecBackend]==0.1.0b13
+tvl[NvdecBackend]==0.1.0b16
 glfw==1.8.3
 
 # Development dependencies
