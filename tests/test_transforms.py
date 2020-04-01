@@ -3,11 +3,14 @@ import json
 import PIL.Image
 import numpy as np
 import pytest
+from posekit.transforms.transformers import Tradeoff
+
 from glupy.math import to_cartesian
 from numpy.testing import assert_allclose
 from posekit import transforms
 from posekit.camera import CameraIntrinsics
 from posekit.skeleton import skeleton_registry
+from posekit.skeleton.utils import is_pose_similar
 from posekit.transforms import TransformerContext
 
 
@@ -78,6 +81,15 @@ class TestTransforms:
         assert_transform_equality(ctx)
         assert_untransform_consistency(ctx, camera, image, points)
 
+    def test_pan_desynced(self, camera, image, points):
+        ctx = TransformerContext(camera, image.width, image.height, msaa=1,
+                                 tradeoff=Tradeoff.DESYNC_IMAGE_SPACE)
+        ctx.add(transforms.PanImage(50, -20))
+
+        transformed = ctx.transform(camera, image, points)
+        assert is_pose_similar(transformed[2], points, tolerance=1e-2)
+        assert_untransform_consistency(ctx, camera, image, points)
+
     def test_zoom(self, camera, image, points):
         ctx = TransformerContext(camera, image.width, image.height, msaa=1)
         ctx.add(transforms.ZoomImage(1.4))
@@ -103,6 +115,15 @@ class TestTransforms:
         transformed = ctx.transform(camera, image, points)
         assert_synced(*transformed, camera, image, points)
         assert_transform_equality(ctx)
+        assert_untransform_consistency(ctx, camera, image, points)
+
+    def test_rotate_desynced(self, camera, image, points):
+        ctx = TransformerContext(camera, image.width, image.height, msaa=1,
+                                 tradeoff=Tradeoff.DESYNC_IMAGE_SPACE)
+        ctx.add(transforms.RotateImage(30))
+
+        transformed = ctx.transform(camera, image, points)
+        assert is_pose_similar(transformed[2], points, tolerance=1e-2)
         assert_untransform_consistency(ctx, camera, image, points)
 
     def test_square_crop(self, camera, image, points, example):

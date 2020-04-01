@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import IntEnum
 
 import numpy as np
 from PIL import Image, ImageEnhance
@@ -6,6 +7,17 @@ from glupy.math import mat3, ensure_homogeneous, mat4
 from posekit.camera import CameraIntrinsics
 from posekit.utils import cast_array
 from torchvision.transforms.functional import adjust_hue
+
+
+# Not all transforms can preserve lengths in 3D space AND the correspondence between pixels and
+# 2D point projections. The `Tradeoff` enum defines which trade-off is permissible when performing
+# transformations.
+class Tradeoff(IntEnum):
+    NONE = 0  # Strictly no trade-off (not supported by all transforms)
+    WARP_LENGTHS = 1  # Allow lengths in 3D space to warp (ratios between lengths are not
+                      # guaranteed to remain constant)
+    DESYNC_IMAGE_SPACE = 2  # Allow image-space locations to desynchronise (projections of points
+                            # into image space are not guaranteed to match pixels precisely)
 
 
 class Transformer(ABC):
@@ -194,11 +206,13 @@ class PointTransformer(MatrixBasedTransformer):
 
 
 class TransformerContext:
-    def __init__(self, camera, image_width, image_height, msaa=2):
+    def __init__(self, camera, image_width, image_height, msaa=2,
+                 tradeoff=Tradeoff.WARP_LENGTHS):
         self.orig_camera = camera
         self.camera_transformer = CameraTransformer()
         self.image_transformer = ImageTransformer(image_width, image_height, camera.x_0, camera.y_0, msaa=msaa)
         self.point_transformer = PointTransformer()
+        self.tradeoff = tradeoff
 
     def add(self, transform, camera=True, image=True, points=True):
         if points:

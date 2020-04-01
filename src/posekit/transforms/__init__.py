@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import math
 
 from glupy.math import mat4, mat3
-from posekit.transforms.transformers import TransformerContext
+from posekit.transforms.transformers import TransformerContext, Tradeoff
 
 
 class Transform(ABC):
@@ -86,14 +86,19 @@ class RotateImage(Transform):
         ctx.image_transformer.mm(mat3.rotate(self.radians))
 
     def add_point_transform(self, ctx):
-        camera = ctx.camera_transformer.transform(ctx.orig_camera)
-        k = camera.alpha_y / camera.alpha_x
-        rads = self.radians
-        ctx.point_transformer.mm(mat4.affine(
-            A=[[ math.cos(rads), math.sin(rads) * k, 0],
-               [-math.sin(rads) / k, math.cos(rads), 0],
-               [              0,              0, 1]],
-        ))
+        if ctx.tradeoff == Tradeoff.WARP_LENGTHS:
+            camera = ctx.camera_transformer.transform(ctx.orig_camera)
+            k = camera.alpha_y / camera.alpha_x
+            rads = self.radians
+            ctx.point_transformer.mm(mat4.affine(
+                A=[[math.cos(rads), math.sin(rads) * k, 0],
+                   [-math.sin(rads) / k, math.cos(rads), 0],
+                   [0, 0, 1]],
+            ))
+        elif ctx.tradeoff == Tradeoff.DESYNC_IMAGE_SPACE:
+            ctx.point_transformer.mm(mat4.rotate_axis_angle(0, 0, -1, self.radians))
+        else:
+            raise ValueError(f'Unsupported tradeoff for RotateImage: {str(ctx.tradeoff)}')
 
 
 class PanImage(Transform):
@@ -111,13 +116,23 @@ class PanImage(Transform):
     def add_point_transform(self, ctx):
         camera = ctx.camera_transformer.transform(ctx.orig_camera)
 
-        ox = self.dx / camera.alpha_x
-        oy = self.dy / camera.alpha_y
-        ctx.point_transformer.mm(mat4.affine(
-            A=[[1, 0, ox],
-               [0, 1, oy],
-               [0, 0,  1]],
-        ))
+        if ctx.tradeoff == Tradeoff.WARP_LENGTHS:
+            ox = self.dx / camera.alpha_x
+            oy = self.dy / camera.alpha_y
+            ctx.point_transformer.mm(mat4.affine(
+                A=[[1, 0, ox],
+                   [0, 1, oy],
+                   [0, 0,  1]],
+            ))
+        elif ctx.tradeoff == Tradeoff.DESYNC_IMAGE_SPACE:
+            theta_x = math.atan2(self.dx, camera.alpha_x)
+            Rx = mat4.rotate_axis_angle(0, -1, 0, -theta_x)
+            theta_y = math.atan2(self.dy, camera.alpha_y)
+            Ry = mat4.rotate_axis_angle(1, 0, 0, -theta_y)
+            ctx.point_transformer.mm(Rx)
+            ctx.point_transformer.mm(Ry)
+        else:
+            raise ValueError(f'Unsupported tradeoff for PanImage: {str(ctx.tradeoff)}')
 
 
 class ChangeResolution(Transform):

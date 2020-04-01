@@ -83,6 +83,14 @@ def joints_to_limb_lengths(joints, skeleton: Skeleton):
     return r
 
 
+def is_pose_similar(pose, other_pose, tolerance=1e-6):
+    """Test whether the pose is similar to a reference (up to a similarity transform)."""
+    pose = cast_array(ensure_cartesian(pose, 3), np.float32)
+    other_pose = cast_array(ensure_cartesian(other_pose, 3), np.float32)
+    aligned_pose = procrustes(other_pose, pose, reflection=True)
+    return np.allclose(aligned_pose, other_pose, rtol=0, atol=tolerance)
+
+
 def cartesian_to_spherical(cartesian):
     x = cartesian[..., 0]
     y = cartesian[..., 1]

@@ -5,7 +5,7 @@ from torch.testing import assert_allclose
 
 from posekit.skeleton import skeleton_registry, skeleton_converter
 from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, move_joint_closer_, \
-    absolute_to_root_relative, joints_to_limb_lengths, universal_orientation
+    absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar
 
 
 def test_conversion_between_mpi3d_17j_and_h36m_17j():
@@ -107,3 +107,11 @@ def test_universal_orientation():
 
     actual = np.array(universal_orientation(joints_3d, skeleton))
     assert_allclose(actual, expected, rtol=0, atol=0.1)
+
+
+def test_is_pose_similar(annot3):
+    variant1 = annot3 * 3 + 50
+    assert is_pose_similar(variant1, annot3, tolerance=1e-2) == True
+    variant2 = annot3.copy()
+    variant2[0, 0] = 100
+    assert is_pose_similar(variant2, annot3, tolerance=1e-2) == False
