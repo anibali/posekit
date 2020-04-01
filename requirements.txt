@@ -7,7 +7,7 @@ phx-class-registry==3.0.5
 toolz==0.10.0
 tvl[NvdecBackend]==0.1.0b16
 glfw==1.8.3
-Pillow==6.0.0
+Pillow==6.2.0
 
 # Development dependencies
 pytest==5.2.0
