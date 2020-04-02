@@ -52,6 +52,17 @@ class CameraTransformer(MatrixBasedTransformer):
         self.sx = 1
         self.sy = 1
 
+    def get_centred_matrix(self, camera: CameraIntrinsics):
+        matrix = mat3.concatenate([
+            # Move principle point to origin
+            mat3.translate(-camera.x_0, -camera.y_0),
+            # Apply transformations
+            self.matrix,
+            # Restore principal point
+            mat3.translate(camera.x_0 * self.sx, camera.y_0 * self.sy),
+        ])
+        return matrix
+
     def zoom(self, sx, sy):
         self.mm(mat3.scale(sx, sy))
         self.sx *= sx
@@ -59,10 +70,7 @@ class CameraTransformer(MatrixBasedTransformer):
 
     def transform(self, camera: CameraIntrinsics):
         camera = camera.clone()
-        x_0, y_0 = camera.x_0, camera.y_0
-        camera.x_0, camera.y_0 = 0, 0
-        camera.matrix = cast_array(self.matrix, camera.matrix) @ camera.matrix
-        camera.x_0, camera.y_0 = x_0 * self.sx, y_0 * self.sy
+        camera.matrix = cast_array(self.get_centred_matrix(camera), camera.matrix) @ camera.matrix
         return camera
 
     def untransform(self, camera: CameraIntrinsics):
@@ -96,11 +104,6 @@ class ImageTransformer(MatrixBasedTransformer):
 
         self.x0 = x0
         self.y0 = y0
-
-    @property
-    def output_size(self):
-        """Dimensions of the transformed image in pixels (width, height)."""
-        return tuple(self.dest_size.round().astype(np.int))
 
     def adjust_colour(self, brightness, contrast, saturation, hue):
         self.brightness = brightness

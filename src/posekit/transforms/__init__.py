@@ -142,7 +142,7 @@ class ChangeResolution(Transform):
         self.out_height = out_height
 
     def add_camera_transform(self, ctx):
-        in_width, in_height = ctx.image_transformer.output_size
+        in_width, in_height = ctx.image_transformer.dest_size
         sx = self.out_width / in_width
         sy = self.out_height / in_height
         ctx.camera_transformer.zoom(sx, sy)
@@ -161,7 +161,7 @@ class SquareCrop(Transform):
         super().__init__()
 
     def add_camera_transform(self, ctx):
-        image_width, image_height = ctx.image_transformer.output_size
+        image_width, image_height = ctx.image_transformer.dest_size
         if image_height < image_width:
             sx = image_width / image_height
             sy = 1
@@ -171,12 +171,36 @@ class SquareCrop(Transform):
         ctx.camera_transformer.mm(mat3.scale(sx, sy))
 
     def add_image_transform(self, ctx):
-        image_width, image_height = ctx.image_transformer.output_size
+        image_width, image_height = ctx.image_transformer.dest_size
         if image_height < image_width:
             sx, sy = image_width / image_height, 1
         else:
             sx, sy = 1, image_height / image_width
         ctx.image_transformer.mm(mat3.scale(sx, sy))
+
+    def add_point_transform(self, ctx):
+        pass
+
+
+class ResetPrincipalPoint(Transform):
+    """Set the camera principal point to the image centre, and translate the image accordingly."""
+
+    def __init__(self):
+        super().__init__()
+
+    def _make_matrix(self, ctx):
+        sx = ctx.camera_transformer.sx
+        sy = ctx.camera_transformer.sy
+        return mat3.translate(
+            (ctx.image_transformer.orig_width / 2 - ctx.orig_camera.x_0) * sx,
+            (ctx.image_transformer.orig_height / 2 - ctx.orig_camera.y_0) * sy,
+        )
+
+    def add_camera_transform(self, ctx):
+        ctx.camera_transformer.mm(self._make_matrix(ctx))
+
+    def add_image_transform(self, ctx):
+        ctx.image_transformer.mm(self._make_matrix(ctx))
 
     def add_point_transform(self, ctx):
         pass
