@@ -2,46 +2,11 @@ from importlib import resources
 
 import OpenGL.GL as gl
 import numpy as np
-import pycuda.autoinit
-import pycuda.driver
 import torch
-from pycuda.gl import graphics_map_flags, RegisteredImage
 
 import glupy.examples.demo03
-from glupy.gl import VAO, ShaderProgram, OpenGlApp, Texture2d
-
-
-class MappedTexture:
-    def __init__(self, height, width):
-        channels = 4
-        self._gl_texture = Texture2d((height, width, channels))
-        self._cuda_buffer = RegisteredImage(int(self.gl_texture.handle), self.gl_texture.target,
-                                            graphics_map_flags.WRITE_DISCARD)
-        self._tensor = torch.zeros((height, width, channels), dtype=torch.uint8, device='cuda')
-
-    @property
-    def tensor(self):
-        return self._tensor
-
-    @property
-    def gl_texture(self):
-        return self._gl_texture
-
-    def update(self):
-        """Copy data from a PyTorch CUDA tensor into OpenGL texture memory."""
-        tensor = self.tensor
-        assert tensor.is_contiguous()
-        assert tensor.numel() * tensor.element_size() == self.gl_texture.nbytes
-        h, w, chans = tensor.shape
-        mapping = self._cuda_buffer.map()
-        memcpy = pycuda.driver.Memcpy2D()
-        memcpy.set_src_device(tensor.data_ptr())
-        memcpy.set_dst_array(mapping.array(0, 0))
-        memcpy.height = h
-        memcpy.width_in_bytes = memcpy.src_pitch = memcpy.dst_pitch = w * chans * tensor.element_size()
-        memcpy(aligned=False)
-        torch.cuda.synchronize(tensor.device)
-        mapping.unmap()
+from glupy.gl import VAO, ShaderProgram, OpenGlApp
+from glupy.gl.torch import MappedTexture
 
 
 class Demo3(OpenGlApp):
@@ -81,12 +46,11 @@ class Demo3(OpenGlApp):
         self.theta = np.fmod(self.theta + 2 * dt, 2 * np.pi)
 
         # Update the texture (using GPU operations).
-        tensor = self.tex.tensor
-        tensor[:, :, 3] = 255  # set alpha
-        tensor[:, :, 2] = round(255 * 0.5 * (np.sin(self.theta) + 1))  # set blue
-        tensor[:128, :, 1] = 255  # horizontal green/cyan block
-        tensor[:, :256, 0] = 255  # vertical red/magenta block
-        self.tex.update()
+        with self.tex.modify() as tensor:
+            tensor[:, :, 3] = 255  # set alpha
+            tensor[:, :, 2] = round(255 * 0.5 * (np.sin(self.theta) + 1))  # set blue
+            tensor[:128, :, 1] = 255  # horizontal green/cyan block
+            tensor[:, :256, 0] = 255  # vertical red/magenta block
 
         # Render the texture on a quad.
         with self.program, self.vao, self.tex.gl_texture:
