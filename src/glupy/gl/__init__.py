@@ -1,4 +1,5 @@
 import enum
+import re
 from time import perf_counter
 
 import OpenGL.GL as gl
@@ -318,6 +319,59 @@ class ModifierKey(enum.Enum):
     NUM_LOCK = glfw.MOD_NUM_LOCK
 
 
+_modifier_map = {
+    'alt': ModifierKey.ALT,
+    'ctrl': ModifierKey.CONTROL,
+    'shift': ModifierKey.SHIFT,
+    'super': ModifierKey.SUPER,
+}
+
+
+def _clean_modifier_key(mod_key):
+    if isinstance(mod_key, str):
+        mod_key = mod_key.upper()
+        if mod_key == 'CTRL':
+            mod_key = ModifierKey.CONTROL
+        else:
+            mod_key = ModifierKey[mod_key]
+    return mod_key
+
+
+def _clean_key(key, mod_keys):
+    if isinstance(key, KeyboardShortcut):
+        key, mod_keys = key.base_key, key.modifier_keys
+    if isinstance(key, str):
+        if len(key) == 1:
+            key = ord(key.upper())
+        else:
+            key = Key[key.upper()]
+    if isinstance(key, Key):
+        key = key.value
+    if mod_keys is not None:
+        mod_keys = [_clean_modifier_key(mod_key) for mod_key in mod_keys]
+    return key, mod_keys
+
+
+class KeyboardShortcut:
+    _parser_regex = re.compile(r'((?:\w+\+)*)(.*)')
+
+    def __init__(self, base_key, modifier_keys=None):
+        if modifier_keys is None:
+            modifier_keys = []
+        self.base_key = base_key
+        self.modifier_keys = set(modifier_keys)
+
+    @classmethod
+    def parse(cls, string_shortcut):
+        match = cls._parser_regex.match(string_shortcut)
+        if not match or len(match.groups()) != 2:
+            raise ValueError(f'malformed shortcut: {string_shortcut}')
+        modifiers, base = match.groups()
+        modifiers = modifiers.lower().split('+')[:-1]
+        base_key, modifier_keys = _clean_key(base, modifiers)
+        return cls(base_key, modifier_keys)
+
+
 class Keyboard:
     def __init__(self):
         self._down_keys = set()
@@ -339,27 +393,32 @@ class Keyboard:
     def set_modifiers(self, mods):
         self._modifiers = mods
 
-    def _clean_key(self, key):
-        if isinstance(key, str):
-            return ord(key.upper())
-        if isinstance(key, Key):
-            return key.value
-        return key
+    def is_down(self, key, mod_keys=None):
+        key, mod_keys = _clean_key(key, mod_keys)
+        return key in self._down_keys and self.has_exact_modifiers(mod_keys)
 
-    def is_down(self, key):
-        return self._clean_key(key) in self._down_keys
+    def is_up(self, key, mod_keys=None):
+        return not self.is_down(key, mod_keys)
 
-    def is_up(self, key):
-        return not self.is_down(key)
+    def was_released(self, key, mod_keys=None):
+        key, mod_keys = _clean_key(key, mod_keys)
+        return key in self._released_keys and self.has_exact_modifiers(mod_keys)
 
-    def was_released(self, key):
-        return self._clean_key(key) in self._released_keys
-
-    def was_pressed(self, key):
-        return self._clean_key(key) in self._pressed_keys
+    def was_pressed(self, key, mod_keys=None):
+        key, mod_keys = _clean_key(key, mod_keys)
+        return key in self._pressed_keys and self.has_exact_modifiers(mod_keys)
 
     def has_modifier(self, mod_key: ModifierKey):
         return (self._modifiers & mod_key.value) != 0
+
+    def has_exact_modifiers(self, mod_keys):
+        if mod_keys is None:
+            return True
+        cur_modifiers = 0
+        for mod_key in mod_keys:
+            cur_modifiers |= mod_key.value
+        mask = ModifierKey.ALT.value | ModifierKey.CONTROL.value | ModifierKey.SHIFT.value | ModifierKey.SUPER.value
+        return self._modifiers & mask == cur_modifiers & mask
 
     def update(self, dt):
         if len(self._released_buffer) > 0:
