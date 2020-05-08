@@ -115,6 +115,8 @@ class Ground:
 
 class SeekBar:
     def __init__(self):
+        self.height_px = 10  # Seek bar height (in pixels)
+
         self.shader = create_seekbar_shader()
 
         vertex_data = np.empty(4, [
@@ -122,9 +124,11 @@ class SeekBar:
             ('texcoord', np.float32, 2),
         ])
 
-        bar_h = 10  # Seek bar height (in pixels)
-        vertex_data['position'] = [(0, 0), (0, bar_h), (1, 0), (1, bar_h)]
+        vertex_data['position'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
         vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+        with self.shader:
+            self.shader.set_uniform_float('depth', 0.0)
 
         self.vao = VAO()
         with self.vao:
@@ -137,7 +141,9 @@ class SeekBar:
 
     def on_reshape(self, width, height):
         with self.shader:
-            trans_proj = mat4.orthographic(0, 1, 0, height)
+            offset = -(height - self.height_px) / height
+            scale = height / self.height_px
+            trans_proj = mat4.orthographic(0, 1, scale * (1 + offset), scale * offset)
             self.shader.set_uniform_mat4('transProj', trans_proj)
 
     def render(self, dt):

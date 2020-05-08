@@ -78,11 +78,11 @@ def perspective_from_intrinsics(fx, fy, cx, cy, near, far):
     ])
 
 
-def orthographic(left, right, bottom, top):
+def orthographic(left, right, bottom, top, far=-1, near=1):
     return np.asarray([
         [2 / (right - left), 0, 0, -(right + left) / (right - left)],
         [0, 2 / (top - bottom), 0, -(top + bottom) / (top - bottom)],
-        [0, 0, 1, 0],
+        [0, 0, -2 / (far - near), -(far + near) / (far - near)],
         [0, 0, 0, 1],
     ])
 
