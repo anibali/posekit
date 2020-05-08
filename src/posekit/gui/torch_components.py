@@ -30,10 +30,9 @@ class OrthImage:
 
     def set_image(self, image):
         self.image = image
-        tensor = self.tex.tensor
-        tensor[:, :, 3] = 255  # set alpha
-        tensor[..., :3] = self.image.permute(1, 2, 0)[:tensor.shape[0], :tensor.shape[1]]
-        self.tex.update()
+        with self.tex.modify() as tensor:
+            tensor[:, :, 3] = 255  # set alpha
+            tensor[..., :3] = self.image.permute(1, 2, 0)[:tensor.shape[0], :tensor.shape[1]]
 
     def on_reshape(self, width, height):
         with self.shader:
