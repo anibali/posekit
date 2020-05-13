@@ -49,11 +49,10 @@ class OctagonalBone:
 
         self.vao = VAO()
         with self.vao:
-            self.vbo = self.vao.create_vbo(shader, self.vertex_data)
-            self.vbo.transfer_data_to_gpu(self.vertex_data)
-
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(self.index_data)
+            vbo = self.vao.create_vbo(shader, self.vertex_data)
+            vbo.transfer_data_to_gpu(self.vertex_data)
+            ebo = self.vao.create_ebo()
+            ebo.transfer_data_to_gpu(self.index_data)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
@@ -101,11 +100,10 @@ class Ground:
 
         self.vao = VAO()
         with self.vao:
-            self.vbo = self.vao.create_vbo(shader, self.vertex_data)
-            self.vbo.transfer_data_to_gpu(self.vertex_data)
-
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(self.index_data)
+            vbo = self.vao.create_vbo(shader, self.vertex_data)
+            vbo.transfer_data_to_gpu(self.vertex_data)
+            ebo = self.vao.create_ebo()
+            ebo.transfer_data_to_gpu(self.index_data)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)

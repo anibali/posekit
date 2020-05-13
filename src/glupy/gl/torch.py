@@ -19,7 +19,7 @@ class MappedTexture:
         """
         channels = 4
         self._gl_texture = Texture2d((height, width, channels))
-        self._cuda_buffer = RegisteredImage(int(self.gl_texture.handle), self.gl_texture.target,
+        self._cuda_buffer = RegisteredImage(int(self.gl_texture._handle), self.gl_texture.target,
                                             graphics_map_flags.WRITE_DISCARD)
         self._tensor = torch.zeros((height, width, channels), dtype=torch.uint8, device='cuda')
         self._tensor_data_ptr = self._tensor.data_ptr()

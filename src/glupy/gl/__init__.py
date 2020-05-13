@@ -1,15 +1,209 @@
 import enum
 import re
+import weakref
+from abc import abstractmethod, ABC
 from time import perf_counter
+from typing import Optional, List, Callable, Any, TypeVar, Generic
 
 import OpenGL.GL as gl
 import glfw
 import numpy as np
 
 
-class ShaderProgram:
+T = TypeVar('T')
+class WeakStack(ABC, Generic[T]):
+    def __init__(self, callback: Callable[[Optional[T], Optional[T]], None]):
+        """Create a stack containing weak references to values.
+
+        Items in the stack will be replaced with None when there are no other references to them.
+
+        Args:
+            callback: Function to be called when the top of the stack changes. It will be passed
+                the old top value and new top value as arguments.
+        """
+        self._list: List[weakref.ReferenceType] = []
+        self._callback = callback
+
+    def empty(self):
+        """Return True if and only if there are no items on the stack.
+        """
+        return len(self._list) == 0
+
+    def peek(self) -> Optional[T]:
+        """Return the top item of the stack.
+
+        Returns:
+            The top item of the stack if the stack is not empty, otherwise None.
+        """
+        if self.empty():
+            return None
+        return self._list[-1]()
+
+    def _push(self, value: T):
+        self._list.append(weakref.ref(value))
+
+    def _pop(self) -> T:
+        return self._list.pop()()
+
+    def set_top(self, value: T):
+        """Replace the top of the stack with a new value.
+
+        Args:
+            value: The new value for the top of the stack.
+        """
+        if self.empty():
+            old_top = None
+        else:
+            old_top = self._pop()
+        self._push(value)
+        self._callback(old_top, value)
+
+    def push(self, value: T):
+        """Push a new item onto the stack.
+
+        Args:
+            value: The new item.
+        """
+        prev_top = self.peek()
+        self._push(value)
+        self._callback(prev_top, value)
+
+    def pop(self) -> T:
+        """Remove the item on top of the stack.
+
+        Returns:
+            The removed item.
+        """
+        old_top = self._pop()
+        top = self.peek()
+        self._callback(old_top, top)
+        return old_top
+
+
+def _rebind_context(old, new):
+    if new is None or new is old:
+        return
+    glfw.make_context_current(new.window)
+
+
+class Context:
+    stack: WeakStack['Context'] = WeakStack(_rebind_context)
+
+    def __init__(self, window):
+        assert window is not None
+        self.window = window
+        self.gl_objects = weakref.WeakSet()
+
+    @classmethod
+    def get_current(cls) -> Optional['Context']:
+        return cls.stack.peek()
+
+    def make_current(self):
+        Context.stack.set_top(self)
+
+    def __enter__(self):
+        Context.stack.push(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        Context.stack.pop()
+
+    def try_destroy_gl_object(self, obj):
+        if self.window is None:
+            # Can't destroy the object if its context has already been destroyed.
+            return False
+        # If an object gets garbage collected while another context is current, temporarily make
+        # this context current and destroy the object.
+        with self:
+            obj.destroy()
+        return True
+
+    def is_destroyed(self):
+        return self.window is None
+
+    def destroy(self):
+        if self.is_destroyed():
+            return
+        assert self is Context.get_current()
+        for obj in self.gl_objects:
+            obj.destroy()
+        glfw.destroy_window(self.window)
+        self.window = None
+
+
+class _GlObject(ABC):
+    def __init__(self, handle):
+        assert handle is not None
+        self._handle = handle
+        self._context = Context.get_current()
+        assert self._context is not None
+        self._context.gl_objects.add(self)
+
+    @abstractmethod
+    def _destroy(self):
+        pass
+
+    def is_destroyed(self):
+        return self._handle is None
+
+    def destroy(self):
+        if self.is_destroyed():
+            return
+        self._destroy()
+        self._handle = None
+
+    def __del__(self):
+        self._context.try_destroy_gl_object(self)
+
+
+class _BindableGlObject(_GlObject):
+    def __init__(self, handle):
+        super().__init__(handle)
+        cls = self.__class__
+        if not hasattr(cls, '_bind_managers'):
+            cls._bind_managers = weakref.WeakKeyDictionary()
+        if self._context not in cls._bind_managers:
+            cls._bind_managers[self._context] = WeakStack(cls._rebind_fn)
+
+    @classmethod
+    def _rebind_fn(cls, old, new):
+        if new is old:
+            return
+        if new is None or new.is_destroyed():
+            handle = 0
+        else:
+            handle = new._handle
+        cls._bind(handle)
+
+    @classmethod
+    @abstractmethod
+    def _bind(cls, handle):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _get_currently_bound(cls):
+        pass
+
+    @property
+    def bind_manager(self) -> WeakStack['_BindableGlObject']:
+        return self._bind_managers[self._context]
+
+    def bind(self):
+        self.bind_manager.set_top(self)
+
+    def assert_currently_bound(self):
+        assert self._get_currently_bound() == self._handle
+
+    def __enter__(self):
+        self.bind_manager.push(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.bind_manager.pop()
+
+
+class ShaderProgram(_BindableGlObject):
     def __init__(self, vertex_code, fragment_code):
-        program = gl.glCreateProgram()
+        super().__init__(gl.glCreateProgram())
         vertex = gl.glCreateShader(gl.GL_VERTEX_SHADER)
         fragment = gl.glCreateShader(gl.GL_FRAGMENT_SHADER)
 
@@ -29,25 +223,27 @@ class ShaderProgram:
             raise RuntimeError('Fragment shader compilation error')
 
         # Link individual shaders to create a shader program.
-        gl.glAttachShader(program, vertex)
-        gl.glAttachShader(program, fragment)
-        gl.glLinkProgram(program)
+        gl.glAttachShader(self._handle, vertex)
+        gl.glAttachShader(self._handle, fragment)
+        gl.glLinkProgram(self._handle)
 
-        if not gl.glGetProgramiv(program, gl.GL_LINK_STATUS):
-            print(gl.glGetProgramInfoLog(program))
+        if not gl.glGetProgramiv(self._handle, gl.GL_LINK_STATUS):
+            print(gl.glGetProgramInfoLog(self._handle))
             raise RuntimeError('Linking error')
 
         # Free shader source and unlinked object code.
-        gl.glDetachShader(program, vertex)
-        gl.glDetachShader(program, fragment)
+        gl.glDetachShader(self._handle, vertex)
+        gl.glDetachShader(self._handle, fragment)
         gl.glDeleteShader(vertex)
         gl.glDeleteShader(fragment)
 
-        self._handle = program
-        self._prev_prog_binding = 0
+    @classmethod
+    def _bind(cls, handle):
+        gl.glUseProgram(handle)
 
-    def assert_current(self):
-        assert gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM) == self._handle
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
 
     def get_uniform_block_index(self, name):
         index = gl.glGetUniformBlockIndex(self._handle, name)
@@ -62,43 +258,41 @@ class ShaderProgram:
         return loc
 
     def set_uniform_mat4(self, name, value):
-        self.assert_current()
+        self.assert_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniformMatrix4fv(loc, 1, False, value)
 
     def set_uniform_vec4(self, name, value):
-        self.assert_current()
+        self.assert_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniform4fv(loc, 1, value)
 
     def set_uniform_float(self, name, value):
-        self.assert_current()
+        self.assert_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniform1f(loc, value)
 
-    def __enter__(self):
-        self._prev_prog_binding = gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
-        gl.glUseProgram(self._handle)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glUseProgram(self._prev_prog_binding)
-
-    def __del__(self):
-        if gl.glDeleteProgram is not None and hasattr(self, '_handle'):
+    def _destroy(self):
+        if gl.glDeleteProgram is not None:
             gl.glDeleteProgram(self._handle)
 
 
-class VAO:
+class VAO(_BindableGlObject):
     def __init__(self):
-        self._handle = gl.glGenVertexArrays(1)
-        self._prev_vao_binding = 0
+        super().__init__(gl.glGenVertexArrays(1))
 
-    def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING) == self._handle
+    @classmethod
+    def _bind(cls, handle):
+        gl.glBindVertexArray(handle)
+
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING)
 
     def create_vbo(self, program: ShaderProgram, data: np.ndarray):
-        self.assert_bound()
+        self.assert_currently_bound()
         vbo = VBO()
+        vbo.bind()
         stride = data.strides[0]
         for name, (dtype, offset) in data.dtype.fields.items():
             loc = gl.glGetAttribLocation(program._handle, name)
@@ -107,81 +301,60 @@ class VAO:
                 gl_type = gl.GL_FLOAT
             else:
                 raise TypeError(f'Unsupported base data type: {dtype.base}')
-            with vbo:
-                gl.glVertexAttribPointer(loc, dtype.shape[0], gl_type, False, stride,
-                                         gl.ctypes.c_void_p(offset))
-        vbo.bind()
+            gl.glVertexAttribPointer(loc, dtype.shape[0], gl_type, False, stride,
+                                     gl.ctypes.c_void_p(offset))
         return vbo
 
     def create_ebo(self):
-        self.assert_bound()
+        self.assert_currently_bound()
         ebo = EBO()
 
         ebo.bind()
         return ebo
 
-    def __enter__(self):
-        self._prev_vao_binding = gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING)
-        gl.glBindVertexArray(self._handle)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glBindVertexArray(self._prev_vao_binding)
-
-    def __del__(self):
+    def _destroy(self):
         if gl.glDeleteVertexArrays is not None:
             gl.glDeleteVertexArrays(1, [self._handle])
 
 
-class VBO:
+class VBO(_BindableGlObject):
     def __init__(self):
-        self._handle = gl.glGenBuffers(1)
-        self._prev_vbo_binding = 0
+        super().__init__(gl.glGenBuffers(1))
 
-    def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING) == self._handle
+    @classmethod
+    def _bind(cls, handle):
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, handle)
+
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING)
 
     def transfer_data_to_gpu(self, data: np.ndarray):
-        self.assert_bound()
+        self.assert_currently_bound()
         gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
-    def bind(self):
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self._handle)
-
-    def __enter__(self):
-        self._prev_vbo_binding = gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING)
-        self.bind()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self._prev_vbo_binding)
-
-    def __del__(self):
+    def _destroy(self):
         if gl.glDeleteBuffers is not None:
             gl.glDeleteBuffers(1, [self._handle])
 
 
-class EBO:
+class EBO(_BindableGlObject):
     def __init__(self):
-        self._handle = gl.glGenBuffers(1)
-        self._prev_ebo_binding = 0
+        super().__init__(gl.glGenBuffers(1))
 
-    def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING) == self._handle
+    @classmethod
+    def _bind(cls, handle):
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, handle)
+
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING)
 
     def transfer_data_to_gpu(self, data: np.ndarray):
-        self.assert_bound()
+        self.assert_currently_bound()
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
-    def bind(self):
-        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self._handle)
-
-    def __enter__(self):
-        self._prev_ebo_binding = gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING)
-        self.bind()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self._prev_ebo_binding)
-
-    def __del__(self):
+    def _destroy(self):
         if gl.glDeleteBuffers is not None:
             gl.glDeleteBuffers(1, [self._handle])
 
@@ -209,11 +382,18 @@ class UniformBinding:
         return ubo
 
 
-class UBO:
+class UBO(_BindableGlObject):
     def __init__(self, fields):
+        super().__init__(gl.glGenBuffers(1))
         self._cpu_data = np.zeros(1, dtype=fields)
-        self._handle = gl.glGenBuffers(1)
-        self._prev_ubo_binding = 0
+
+    @classmethod
+    def _bind(cls, handle):
+        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, handle)
+
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_UNIFORM_BUFFER_BINDING)
 
     def __setitem__(self, key, value):
         self._cpu_data[key][0] = value
@@ -221,67 +401,46 @@ class UBO:
     def __getitem__(self, key):
         return self._cpu_data[key][0]
 
-    def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_UNIFORM_BUFFER_BINDING) == self._handle
-
     def flush(self):
-        self.assert_bound()
+        self.assert_currently_bound()
         gl.glBufferData(gl.GL_UNIFORM_BUFFER, self._cpu_data.nbytes, self._cpu_data,
                         gl.GL_DYNAMIC_DRAW)
 
-    def bind(self):
-        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self._handle)
-
-    def __enter__(self):
-        self._prev_ubo_binding = gl.glGetIntegerv(gl.GL_UNIFORM_BUFFER_BINDING)
-        self.bind()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self._prev_ubo_binding)
-
-    def __del__(self):
+    def _destroy(self):
         if gl.glDeleteBuffers is not None:
             gl.glDeleteBuffers(1, [self._handle])
 
 
-class Texture2d:
-    def __init__(self, shape):
-        self.target = gl.GL_TEXTURE_2D
-        self.handle = gl.glGenTextures(1)
+class Texture2d(_BindableGlObject):
+    target = gl.GL_TEXTURE_2D
 
+    def __init__(self, shape):
+        super().__init__(gl.glGenTextures(1))
         h, w, c = shape
 
-        gl.glBindTexture(self.target, self.handle)
-        gl.glTexParameterf(self.target, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
-        gl.glTexParameterf(self.target, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
-        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
-        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
-        gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_R, gl.GL_CLAMP_TO_EDGE)
-        gl.glTexImage2D(self.target, 0, gl.GL_RGBA, w, h, 0, gl.GL_RGBA,
-                        gl.GL_UNSIGNED_BYTE, None)
-        gl.glBindTexture(self.target, 0)
+        with self:
+            gl.glTexParameterf(self.target, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+            gl.glTexParameterf(self.target, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+            gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+            gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
+            gl.glTexParameterf(self.target, gl.GL_TEXTURE_WRAP_R, gl.GL_CLAMP_TO_EDGE)
+            gl.glTexImage2D(self.target, 0, gl.GL_RGBA, w, h, 0, gl.GL_RGBA,
+                            gl.GL_UNSIGNED_BYTE, None)
 
         self.nbytes = h * w * c
         self.shape = shape
 
-        self._prev_tex_binding = 0
+    @classmethod
+    def _bind(cls, handle):
+        gl.glBindTexture(cls.target, handle)
 
-    def assert_bound(self):
-        assert gl.glGetIntegerv(gl.GL_TEXTURE_BINDING_2D) == self.handle
+    @classmethod
+    def _get_currently_bound(cls):
+        return gl.glGetIntegerv(gl.GL_TEXTURE_BINDING_2D)
 
-    def bind(self):
-        gl.glBindTexture(self.target, self.handle)
-
-    def __enter__(self):
-        self._prev_tex_binding = gl.glGetIntegerv(gl.GL_TEXTURE_BINDING_2D)
-        self.bind()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        gl.glBindTexture(self.target, self._prev_tex_binding)
-
-    def __del__(self):
+    def _destroy(self):
         if gl.glDeleteTextures is not None:
-            gl.glDeleteTextures(1, [self.handle])
+            gl.glDeleteTextures(1, [self._handle])
 
 
 class Key(enum.Enum):
@@ -509,7 +668,8 @@ class OpenGlApp:
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.SAMPLES, msaa)
         self.window = glfw.create_window(width, height, title, None, None)
-        glfw.make_context_current(self.window)
+        self.context = Context(self.window)
+        self.context.make_current()
 
         glfw.set_window_size_callback(self.window, self._reshape)
         glfw.set_window_close_callback(self.window, self._close)
@@ -591,4 +751,4 @@ class OpenGlApp:
             glfw.swap_buffers(self.window)
             glfw.poll_events()
         self.clean_up()
-        glfw.terminate()
+        self.context.destroy()
