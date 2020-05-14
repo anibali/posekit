@@ -1,9 +1,10 @@
-import OpenGL.GL as gl
 from importlib import resources
+
+import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo02
-from glupy.gl import OpenGlApp, VAO, ShaderProgram
+from glupy.gl import OpenGlApp, VAO, ShaderProgram, EBO, VBO
 from glupy.math import mat4
 
 
@@ -59,17 +60,14 @@ class Demo02(OpenGlApp):
             6, 7, 3
         ]
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(self.program, vertex_data.dtype), ebo=EBO())
         with self.vao:
-            self.vbo = self.vao.create_vbo(self.program, vertex_data)
-            self.vbo.transfer_data_to_gpu(vertex_data)
-
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(index_data)
+            self.vao.ebo.transfer_data_to_gpu(index_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(vertex_data)
 
         trans_model = mat4.scale(0.5) #@ mat4.rotate_axis_angle(0, 1/np.sqrt(2), 1/np.sqrt(2), np.pi / 4)
         trans_view = mat4.translate(2.0, 0, 5.0)
-        # TODO: Adjust this when window is resized
         trans_proj = mat4.perspective(np.pi / 3, 16 / 9, 0.1, 100)
 
         with self.program:
@@ -79,7 +77,7 @@ class Demo02(OpenGlApp):
 
     def render(self, dt):
         with self.program, self.vao:
-            gl.glDrawElements(gl.GL_TRIANGLES, 36, gl.GL_UNSIGNED_INT, None)
+            self.vao.draw_elements()
 
 
 if __name__ == '__main__':

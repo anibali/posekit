@@ -1,7 +1,7 @@
 import OpenGL.GL as gl
 import numpy as np
 
-from glupy.gl import VAO
+from glupy.gl import VAO, VBO, EBO
 from glupy.math import mat4
 from posekit.gui.shaders import create_seekbar_shader
 
@@ -47,18 +47,17 @@ class OctagonalBone:
             1, 5, 2,
         ], dtype=np.uint32)
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(shader, self.vertex_data.dtype), ebo=EBO())
         with self.vao:
-            vbo = self.vao.create_vbo(shader, self.vertex_data)
-            vbo.transfer_data_to_gpu(self.vertex_data)
-            ebo = self.vao.create_ebo()
-            ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
         with self.shader, self.vao:
             self.shader.set_uniform_vec4('color', self.colour)
-            gl.glDrawElements(gl.GL_TRIANGLES, len(self.index_data), gl.GL_UNSIGNED_INT, None)
+            self.vao.draw_elements()
 
 
 class Ground:
@@ -98,17 +97,16 @@ class Ground:
             0, 2, 3,
         ], dtype=np.uint32)
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(shader, self.vertex_data.dtype), ebo=EBO())
         with self.vao:
-            vbo = self.vao.create_vbo(shader, self.vertex_data)
-            vbo.transfer_data_to_gpu(self.vertex_data)
-            ebo = self.vao.create_ebo()
-            ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
         with self.shader, self.vao:
-            gl.glDrawElements(gl.GL_TRIANGLES, len(self.index_data), gl.GL_UNSIGNED_INT, None)
+            self.vao.draw_elements()
 
 
 class SeekBar:
@@ -128,10 +126,10 @@ class SeekBar:
         with self.shader:
             self.shader.set_uniform_float('depth', 0.0)
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(self.shader, vertex_data.dtype))
         with self.vao:
-            vbo = self.vao.create_vbo(self.shader, vertex_data)
-            vbo.transfer_data_to_gpu(vertex_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(vertex_data)
 
     def set_progress(self, fraction):
         with self.shader:

@@ -2,12 +2,36 @@ import enum
 import re
 import weakref
 from abc import abstractmethod, ABC
+from contextlib import contextmanager
 from time import perf_counter
-from typing import Optional, List, Callable, Any, TypeVar, Generic
+from typing import Optional, List, Callable, TypeVar, Generic
 
 import OpenGL.GL as gl
 import glfw
 import numpy as np
+
+
+def np_to_gl_type(np_type: np.dtype):
+    np_type = np_type.base
+    if np_type == np.int8:
+        return gl.GL_BYTE
+    if np_type == np.uint8:
+        return gl.GL_UNSIGNED_BYTE
+    if np_type == np.int16:
+        return gl.GL_SHORT
+    if np_type == np.uint16:
+        return gl.GL_UNSIGNED_SHORT
+    if np_type == np.int32:
+        return gl.GL_INT
+    if np_type == np.uint32:
+        return gl.GL_UNSIGNED_INT
+    if np_type == np.float16:
+        return gl.GL_HALF_FLOAT
+    if np_type == np.float32:
+        return gl.GL_FLOAT
+    if np_type == np.float64:
+        return gl.GL_DOUBLE
+    raise TypeError(f'Unsupported base data type: {np_type}')
 
 
 T = TypeVar('T')
@@ -103,6 +127,7 @@ class Context:
 
     def __enter__(self):
         Context.stack.push(self)
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         Context.stack.pop()
@@ -166,8 +191,6 @@ class _BindableGlObject(_GlObject):
 
     @classmethod
     def _rebind_fn(cls, old, new):
-        if new is old:
-            return
         if new is None or new.is_destroyed():
             handle = 0
         else:
@@ -191,11 +214,12 @@ class _BindableGlObject(_GlObject):
     def bind(self):
         self.bind_manager.set_top(self)
 
-    def assert_currently_bound(self):
-        assert self._get_currently_bound() == self._handle
+    def is_currently_bound(self):
+        return self._get_currently_bound() == self._handle
 
     def __enter__(self):
         self.bind_manager.push(self)
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.bind_manager.pop()
@@ -245,6 +269,12 @@ class ShaderProgram(_BindableGlObject):
     def _get_currently_bound(cls):
         return gl.glGetIntegerv(gl.GL_CURRENT_PROGRAM)
 
+    def get_attribute_location(self, name):
+        loc = gl.glGetAttribLocation(self._handle, name)
+        if loc < 0:
+            raise KeyError(f'attribute not found: {name}')
+        return loc
+
     def get_uniform_block_index(self, name):
         index = gl.glGetUniformBlockIndex(self._handle, name)
         if index < 0:
@@ -258,17 +288,17 @@ class ShaderProgram(_BindableGlObject):
         return loc
 
     def set_uniform_mat4(self, name, value):
-        self.assert_currently_bound()
+        assert self.is_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniformMatrix4fv(loc, 1, False, value)
 
     def set_uniform_vec4(self, name, value):
-        self.assert_currently_bound()
+        assert self.is_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniform4fv(loc, 1, value)
 
     def set_uniform_float(self, name, value):
-        self.assert_currently_bound()
+        assert self.is_currently_bound()
         loc = self.get_uniform_location(name)
         gl.glUniform1f(loc, value)
 
@@ -278,8 +308,23 @@ class ShaderProgram(_BindableGlObject):
 
 
 class VAO(_BindableGlObject):
-    def __init__(self):
+    def __init__(self, vbo=None, ebo=None):
         super().__init__(gl.glGenVertexArrays(1))
+        self._bound_vbo = None
+        self._bound_ebo = None
+        with self:
+            if vbo is not None:
+                self.bind_vbo(vbo)
+            if ebo is not None:
+                self.bind_ebo(ebo)
+
+    @property
+    def ebo(self):
+        return self._bound_ebo
+
+    @property
+    def vbo(self):
+        return self._bound_vbo
 
     @classmethod
     def _bind(cls, handle):
@@ -289,28 +334,20 @@ class VAO(_BindableGlObject):
     def _get_currently_bound(cls):
         return gl.glGetIntegerv(gl.GL_VERTEX_ARRAY_BINDING)
 
-    def create_vbo(self, program: ShaderProgram, data: np.ndarray):
-        self.assert_currently_bound()
-        vbo = VBO()
+    def bind_vbo(self, vbo):
+        assert self.is_currently_bound()
         vbo.bind()
-        stride = data.strides[0]
-        for name, (dtype, offset) in data.dtype.fields.items():
-            loc = gl.glGetAttribLocation(program._handle, name)
-            gl.glEnableVertexAttribArray(loc)
-            if dtype.base == np.float32:
-                gl_type = gl.GL_FLOAT
-            else:
-                raise TypeError(f'Unsupported base data type: {dtype.base}')
-            gl.glVertexAttribPointer(loc, dtype.shape[0], gl_type, False, stride,
-                                     gl.ctypes.c_void_p(offset))
-        return vbo
+        self._bound_vbo = vbo
 
-    def create_ebo(self):
-        self.assert_currently_bound()
-        ebo = EBO()
-
+    def bind_ebo(self, ebo):
+        assert self.is_currently_bound()
         ebo.bind()
-        return ebo
+        self._bound_ebo = ebo
+
+    def draw_elements(self, mode=gl.GL_TRIANGLES):
+        assert self.is_currently_bound()
+        assert self.ebo is not None
+        self.ebo.draw_elements(mode)
 
     def _destroy(self):
         if gl.glDeleteVertexArrays is not None:
@@ -318,8 +355,11 @@ class VAO(_BindableGlObject):
 
 
 class VBO(_BindableGlObject):
-    def __init__(self):
+    def __init__(self, program=None, dtype=None):
         super().__init__(gl.glGenBuffers(1))
+        if program is not None:
+            assert dtype is not None
+            self.parse_vertex_attributes(program, dtype)
 
     @classmethod
     def _bind(cls, handle):
@@ -329,8 +369,25 @@ class VBO(_BindableGlObject):
     def _get_currently_bound(cls):
         return gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING)
 
+    def parse_vertex_attributes(self, program: ShaderProgram, dtype: np.dtype):
+        vertex_attributes = []
+        stride = dtype.itemsize
+        for name, (sub_dtype, offset) in dtype.fields.items():
+            loc = program.get_attribute_location(name)
+            gl_type = np_to_gl_type(sub_dtype)
+            vertex_attributes.append((loc, sub_dtype.shape[0], gl_type, False, stride,
+                                     gl.ctypes.c_void_p(offset)))
+        self.vertex_attributes = vertex_attributes
+
+    def connect_vertex_attributes(self):
+        assert self.is_currently_bound()
+        for args in self.vertex_attributes:
+            loc = args[0]
+            gl.glEnableVertexAttribArray(loc)
+            gl.glVertexAttribPointer(*args)
+
     def transfer_data_to_gpu(self, data: np.ndarray):
-        self.assert_currently_bound()
+        assert self.is_currently_bound()
         gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
     def _destroy(self):
@@ -339,8 +396,11 @@ class VBO(_BindableGlObject):
 
 
 class EBO(_BindableGlObject):
-    def __init__(self):
+    def __init__(self, *, usage=gl.GL_DYNAMIC_DRAW):
         super().__init__(gl.glGenBuffers(1))
+        self.usage = usage
+        self.length = 0
+        self.dtype = 0
 
     @classmethod
     def _bind(cls, handle):
@@ -351,8 +411,13 @@ class EBO(_BindableGlObject):
         return gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING)
 
     def transfer_data_to_gpu(self, data: np.ndarray):
-        self.assert_currently_bound()
-        gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
+        assert self.is_currently_bound()
+        self.length = len(data)
+        self.dtype = np_to_gl_type(data.dtype)
+        gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data, self.usage)
+
+    def draw_elements(self, mode):
+        gl.glDrawElements(mode, self.length, self.dtype, None)
 
     def _destroy(self):
         if gl.glDeleteBuffers is not None:
@@ -402,7 +467,7 @@ class UBO(_BindableGlObject):
         return self._cpu_data[key][0]
 
     def flush(self):
-        self.assert_currently_bound()
+        assert self.is_currently_bound()
         gl.glBufferData(gl.GL_UNIFORM_BUFFER, self._cpu_data.nbytes, self._cpu_data,
                         gl.GL_DYNAMIC_DRAW)
 

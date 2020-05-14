@@ -1,7 +1,7 @@
 import OpenGL.GL as gl
 import numpy as np
 
-from glupy.gl import VAO
+from glupy.gl import VAO, VBO
 from glupy.gl.torch import MappedTexture
 from glupy.math import mat4
 from posekit.gui.shaders import create_image_shader
@@ -19,10 +19,10 @@ class OrthImage:
         vertex_data['position'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
         vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(self.shader, vertex_data.dtype))
         with self.vao:
-            vbo = self.vao.create_vbo(self.shader, vertex_data)
-            vbo.transfer_data_to_gpu(vertex_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(vertex_data)
 
         self.image = None
         self.tex = MappedTexture(height, width)

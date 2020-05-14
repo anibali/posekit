@@ -4,7 +4,7 @@ import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo04
-from glupy.gl import OpenGlApp, VAO, ShaderProgram, Key
+from glupy.gl import OpenGlApp, VAO, ShaderProgram, Key, VBO, EBO
 from glupy.math import mat4
 from posekit.skeleton import skeleton_registry
 
@@ -70,18 +70,16 @@ class OctagonalBone:
             1, 5, 2,
         ], dtype=np.uint32)
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(shader_program, self.vertex_data.dtype), ebo=EBO())
         with self.vao:
-            self.vbo = self.vao.create_vbo(shader_program, self.vertex_data)
-            self.vbo.transfer_data_to_gpu(self.vertex_data)
-
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.ebo.transfer_data_to_gpu(self.index_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
 
     def render(self, dt):
         with self.program, self.vao:
             self.program.set_uniform_vec4('color', self.colour)
-            gl.glDrawElements(gl.GL_TRIANGLES, len(self.index_data), gl.GL_UNSIGNED_INT, None)
+            self.vao.draw_elements()
 
 
 class Demo04(OpenGlApp):

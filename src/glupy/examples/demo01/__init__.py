@@ -1,10 +1,9 @@
 from importlib import resources
 
-import OpenGL.GL as gl
 import numpy as np
 
 import glupy.examples.demo01
-from glupy.gl import OpenGlApp, VAO, ShaderProgram
+from glupy.gl import OpenGlApp, VAO, ShaderProgram, EBO, VBO
 
 
 class Demo1(OpenGlApp):
@@ -23,22 +22,20 @@ class Demo1(OpenGlApp):
         vertex_data['position'] = [(-1, +1, 0), (+1, +1, 0), (-1, -1, 0), (+1, -1, 0)]
         vertex_data['color'] = [(0, 1, 0, 1), (1, 1, 0, 1), (1, 0, 0, 1), (0, 0, 1, 1)]
 
-        index_data = np.empty(2 * 3, dtype=np.uint32)
-        index_data[:] = [
+        index_data = np.asarray([
             0, 1, 2,
             3, 1, 2,
-        ]
+        ], dtype=np.uint32)
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(self.program, vertex_data.dtype), ebo=EBO())
         with self.vao:
-            self.vbo = self.vao.create_vbo(self.program, vertex_data)
-            self.vbo.transfer_data_to_gpu(vertex_data)
-            self.ebo = self.vao.create_ebo()
-            self.ebo.transfer_data_to_gpu(index_data)
+            self.vao.ebo.transfer_data_to_gpu(index_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(vertex_data)
 
     def render(self, dt):
         with self.program, self.vao:
-            gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT, None)
+            self.vao.draw_elements()
 
 
 if __name__ == '__main__':

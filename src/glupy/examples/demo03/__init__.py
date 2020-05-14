@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 import glupy.examples.demo03
-from glupy.gl import VAO, ShaderProgram, OpenGlApp
+from glupy.gl import VAO, ShaderProgram, OpenGlApp, VBO
 from glupy.gl.torch import MappedTexture
 
 
@@ -34,10 +34,10 @@ class Demo3(OpenGlApp):
         vertex_data['position'] = [(-1, -1), (-1, +1), (+1, -1), (+1, +1)]
         vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-        self.vao = VAO()
+        self.vao = VAO(vbo=VBO(self.program, vertex_data.dtype))
         with self.vao:
-            self.vbo = self.vao.create_vbo(self.program, vertex_data)
-            self.vbo.transfer_data_to_gpu(vertex_data)
+            self.vao.vbo.connect_vertex_attributes()
+            self.vao.vbo.transfer_data_to_gpu(vertex_data)
 
         self.theta = 0
 
