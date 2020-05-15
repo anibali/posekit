@@ -14,24 +14,28 @@ class Demo1(OpenGlApp):
         fragment_code = resources.read_text(glupy.examples.demo01, 'demo01.frag')
         self.program = ShaderProgram(vertex_code, fragment_code)
 
-        vertex_data = np.empty(4, [
-            ('position', np.float32, 3),
-            ('color', np.float32, 4),
-        ])
+        # # Option 1: Interleaved memory layout.
+        # layout = np.dtype(([
+        #     ('position', (np.float32, 3)),
+        #     ('color', (np.float32, 4)),
+        # ], 4), align=True)
 
-        vertex_data['position'] = [(-1, +1, 0), (+1, +1, 0), (-1, -1, 0), (+1, -1, 0)]
-        vertex_data['color'] = [(0, 1, 0, 1), (1, 1, 0, 1), (1, 0, 0, 1), (0, 0, 1, 1)]
+        # Option 2: "Struct of arrays" memory layout.
+        layout = np.dtype(([
+            ('position', (np.float32, 3), 4),
+            ('color', (np.float32, 4), 4),
+        ]), align=True)
+
+        vertex_data = np.empty(layout.shape, layout.base)
+        vertex_data['position'] = [[-1, +1, 0], [+1, +1, 0], [-1, -1, 0], [+1, -1, 0]]
+        vertex_data['color'] = [[0, 1, 0, 1], [1, 1, 0, 1], [1, 0, 0, 1], [0, 0, 1, 1]]
 
         index_data = np.asarray([
             0, 1, 2,
             3, 1, 2,
         ], dtype=np.uint32)
 
-        self.vao = VAO(vbo=VBO(self.program, vertex_data.dtype), ebo=EBO())
-        with self.vao:
-            self.vao.ebo.transfer_data_to_gpu(index_data)
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(vertex_data)
+        self.vao = VAO(VBO(vertex_data), EBO(index_data), connect_to=self.program)
 
     def render(self, dt):
         with self.program, self.vao:

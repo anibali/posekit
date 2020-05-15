@@ -6,7 +6,6 @@ import numpy as np
 import glupy.examples.demo04
 from glupy.gl import OpenGlApp, VAO, ShaderProgram, Key, VBO, EBO
 from glupy.math import mat4
-from posekit.skeleton import skeleton_registry
 
 POSE = np.asarray(
     [[-3596.77759359,  1440.20459288, 13889.1501241 ],
@@ -27,6 +26,13 @@ POSE = np.asarray(
      [-3630.39824821,   515.20018004, 14175.38611995],],
     dtype=np.float32
 )
+JOINT_TREE = [
+    1, 2, 6, 6,
+    3, 4, 6, 6,
+    7, 8, 11, 12,
+    8, 8, 13, 14
+]
+ROOT_JOINT_INDEX = 6
 
 
 class OctagonalBone:
@@ -50,7 +56,7 @@ class OctagonalBone:
 
         a = 0.1 * diff + self.start_pos  # Mid-band location
         b = 0.1 * dist  # Thickness
-        self.vertex_data = np.asarray([
+        vertex_data = np.asarray([
             (tuple(self.start_pos),),
             (tuple(self.end_pos),),
             (tuple(a + b * perp1),),
@@ -59,7 +65,7 @@ class OctagonalBone:
             (tuple(a - b * perp2),),
         ], dtype=vertex_data_fields)
 
-        self.index_data = np.asarray([
+        index_data = np.asarray([
             3, 2, 0,
             1, 2, 3,
             4, 3, 0,
@@ -70,11 +76,7 @@ class OctagonalBone:
             1, 5, 2,
         ], dtype=np.uint32)
 
-        self.vao = VAO(vbo=VBO(shader_program, self.vertex_data.dtype), ebo=EBO())
-        with self.vao:
-            self.vao.ebo.transfer_data_to_gpu(self.index_data)
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), ebo=EBO(index_data), connect_to=self.program)
 
     def render(self, dt):
         with self.program, self.vao:
@@ -104,11 +106,10 @@ class Demo04(OpenGlApp):
 
         self.reset_camera()
 
-        skeleton = skeleton_registry['mpii_16j']
-        pose = (POSE - POSE[skeleton.root_joint_id])
+        pose = (POSE - POSE[ROOT_JOINT_INDEX])
 
         self.bones = []
-        for j, p in enumerate(skeleton.joint_tree):
+        for j, p in enumerate(JOINT_TREE):
             if j != p:
                 self.bones.append(OctagonalBone(self.program, pose[j], pose[p]))
 

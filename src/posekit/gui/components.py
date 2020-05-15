@@ -27,7 +27,7 @@ class OctagonalBone:
 
         a = 0.1 * diff + self.start_pos  # Mid-band location
         b = 0.1 * dist  # Thickness
-        self.vertex_data = np.asarray([
+        vertex_data = np.asarray([
             (tuple(self.start_pos),),
             (tuple(self.end_pos),),
             (tuple(a + b * perp1),),
@@ -36,7 +36,7 @@ class OctagonalBone:
             (tuple(a - b * perp2),),
         ], dtype=vertex_data_fields)
 
-        self.index_data = np.asarray([
+        index_data = np.asarray([
             3, 2, 0,
             1, 2, 3,
             4, 3, 0,
@@ -47,11 +47,7 @@ class OctagonalBone:
             1, 5, 2,
         ], dtype=np.uint32)
 
-        self.vao = VAO(vbo=VBO(shader, self.vertex_data.dtype), ebo=EBO())
-        with self.vao:
-            self.vao.ebo.transfer_data_to_gpu(self.index_data)
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), ebo=EBO(index_data), connect_to=self.shader)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
@@ -67,7 +63,7 @@ class Ground:
         vertex_data_fields = [('position', np.float32, 3),
                               ('texcoord', np.float32, 2)]
 
-        self.vertex_data = np.asarray([
+        vertex_data = np.asarray([
             ((-1, 0, -1), (0, 0)),
             (( 1, 0, -1), (1, 0)),
             (( 1, 0,  1), (1, 1)),
@@ -92,16 +88,12 @@ class Ground:
         with self.shader:
             self.shader.set_uniform_mat4('modelMatrix', model_matrix)
 
-        self.index_data = np.asarray([
+        index_data = np.asarray([
             0, 1, 2,
             0, 2, 3,
         ], dtype=np.uint32)
 
-        self.vao = VAO(vbo=VBO(shader, self.vertex_data.dtype), ebo=EBO())
-        with self.vao:
-            self.vao.ebo.transfer_data_to_gpu(self.index_data)
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(self.vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), ebo=EBO(index_data), connect_to=self.shader)
 
     def render(self, dt):
         gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
@@ -126,10 +118,7 @@ class SeekBar:
         with self.shader:
             self.shader.set_uniform_float('depth', 0.0)
 
-        self.vao = VAO(vbo=VBO(self.shader, vertex_data.dtype))
-        with self.vao:
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), connect_to=self.shader)
 
     def set_progress(self, fraction):
         with self.shader:

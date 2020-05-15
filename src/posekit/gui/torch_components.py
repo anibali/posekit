@@ -19,10 +19,7 @@ class OrthImage:
         vertex_data['position'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
         vertex_data['texcoord'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-        self.vao = VAO(vbo=VBO(self.shader, vertex_data.dtype))
-        with self.vao:
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), connect_to=self.shader)
 
         self.image = None
         self.tex = MappedTexture(height, width)

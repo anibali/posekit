@@ -1,3 +1,4 @@
+import ctypes as C
 import enum
 import re
 import weakref
@@ -12,7 +13,6 @@ import numpy as np
 
 
 def np_to_gl_type(np_type: np.dtype):
-    np_type = np_type.base
     if np_type == np.int8:
         return gl.GL_BYTE
     if np_type == np.uint8:
@@ -63,6 +63,14 @@ class WeakStack(ABC, Generic[T]):
             return None
         return self._list[-1]()
 
+    def _set_top(self, value: T):
+        if self.empty():
+            old_top = None
+        else:
+            old_top = self._pop()
+        self._push(value)
+        return old_top
+
     def _push(self, value: T):
         self._list.append(weakref.ref(value))
 
@@ -74,13 +82,13 @@ class WeakStack(ABC, Generic[T]):
 
         Args:
             value: The new value for the top of the stack.
+
+        Returns:
+            The previous top, or None if the stack was empty.
         """
-        if self.empty():
-            old_top = None
-        else:
-            old_top = self._pop()
-        self._push(value)
+        old_top = self._set_top(value)
         self._callback(old_top, value)
+        return old_top
 
     def push(self, value: T):
         """Push a new item onto the stack.
@@ -88,9 +96,9 @@ class WeakStack(ABC, Generic[T]):
         Args:
             value: The new item.
         """
-        prev_top = self.peek()
+        old_top = self.peek()
         self._push(value)
-        self._callback(prev_top, value)
+        self._callback(old_top, value)
 
     def pop(self) -> T:
         """Remove the item on top of the stack.
@@ -191,6 +199,8 @@ class _BindableGlObject(_GlObject):
 
     @classmethod
     def _rebind_fn(cls, old, new):
+        if new is old:
+            return
         if new is None or new.is_destroyed():
             handle = 0
         else:
@@ -211,8 +221,9 @@ class _BindableGlObject(_GlObject):
     def bind_manager(self) -> WeakStack['_BindableGlObject']:
         return self._bind_managers[self._context]
 
-    def bind(self):
-        self.bind_manager.set_top(self)
+    def force_bind(self):
+        self.bind_manager._set_top(self)
+        self._bind(self._handle)
 
     def is_currently_bound(self):
         return self._get_currently_bound() == self._handle
@@ -308,13 +319,15 @@ class ShaderProgram(_BindableGlObject):
 
 
 class VAO(_BindableGlObject):
-    def __init__(self, vbo=None, ebo=None):
+    def __init__(self, vbo: 'VBO'=None, ebo: 'EBO'=None, *, connect_to: Optional[ShaderProgram]=None):
         super().__init__(gl.glGenVertexArrays(1))
         self._bound_vbo = None
         self._bound_ebo = None
         with self:
             if vbo is not None:
                 self.bind_vbo(vbo)
+                if connect_to is not None:
+                    self.connect_vertex_attributes(connect_to)
             if ebo is not None:
                 self.bind_ebo(ebo)
 
@@ -336,12 +349,12 @@ class VAO(_BindableGlObject):
 
     def bind_vbo(self, vbo):
         assert self.is_currently_bound()
-        vbo.bind()
+        vbo.force_bind()
         self._bound_vbo = vbo
 
     def bind_ebo(self, ebo):
         assert self.is_currently_bound()
-        ebo.bind()
+        ebo.force_bind()
         self._bound_ebo = ebo
 
     def draw_elements(self, mode=gl.GL_TRIANGLES):
@@ -349,17 +362,42 @@ class VAO(_BindableGlObject):
         assert self.ebo is not None
         self.ebo.draw_elements(mode)
 
+    def connect_vertex_attributes(self, program: ShaderProgram):
+        assert self.is_currently_bound()
+        assert self._bound_vbo and self._bound_vbo.is_currently_bound()
+        dtype = self._bound_vbo.data_layout.base
+        for name, (sub_dtype, offset) in dtype.fields.items():
+            loc = program.get_attribute_location(name)
+            if self._bound_vbo.data_layout.shape == tuple():
+                gl_type = np_to_gl_type(sub_dtype.base.base)
+                stride = sub_dtype.base.itemsize
+            else:
+                gl_type = np_to_gl_type(sub_dtype.base)
+                stride = dtype.itemsize
+            gl.glEnableVertexAttribArray(loc)
+            gl.glVertexAttribPointer(loc, sub_dtype.shape[0], gl_type, False, stride,
+                                     C.c_void_p(offset))
+
     def _destroy(self):
         if gl.glDeleteVertexArrays is not None:
             gl.glDeleteVertexArrays(1, [self._handle])
 
 
 class VBO(_BindableGlObject):
-    def __init__(self, program=None, dtype=None):
+    def __init__(self, data, *, usage=gl.GL_DYNAMIC_DRAW):
         super().__init__(gl.glGenBuffers(1))
-        if program is not None:
-            assert dtype is not None
-            self.parse_vertex_attributes(program, dtype)
+        self.usage = usage
+        if isinstance(data, np.dtype):
+            data_layout = data
+            data = None
+        else:
+            data_layout = np.dtype((data.dtype, data.shape))
+        self.data_layout = data_layout
+        with self:
+            if data is None:
+                self.allocate()
+            else:
+                self.allocate_and_write(data)
 
     @classmethod
     def _bind(cls, handle):
@@ -369,26 +407,28 @@ class VBO(_BindableGlObject):
     def _get_currently_bound(cls):
         return gl.glGetIntegerv(gl.GL_ARRAY_BUFFER_BINDING)
 
-    def parse_vertex_attributes(self, program: ShaderProgram, dtype: np.dtype):
-        vertex_attributes = []
-        stride = dtype.itemsize
-        for name, (sub_dtype, offset) in dtype.fields.items():
-            loc = program.get_attribute_location(name)
-            gl_type = np_to_gl_type(sub_dtype)
-            vertex_attributes.append((loc, sub_dtype.shape[0], gl_type, False, stride,
-                                     gl.ctypes.c_void_p(offset)))
-        self.vertex_attributes = vertex_attributes
-
-    def connect_vertex_attributes(self):
+    def allocate(self):
         assert self.is_currently_bound()
-        for args in self.vertex_attributes:
-            loc = args[0]
-            gl.glEnableVertexAttribArray(loc)
-            gl.glVertexAttribPointer(*args)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, self.data_layout.itemsize, None, self.usage)
 
-    def transfer_data_to_gpu(self, data: np.ndarray):
+    def write(self, data: np.ndarray):
         assert self.is_currently_bound()
-        gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
+        assert data.nbytes == self.data_layout.itemsize
+        gl.glBufferSubData(gl.GL_ARRAY_BUFFER, 0, data.nbytes, data.data)
+
+    def allocate_and_write(self, data: np.ndarray):
+        assert self.is_currently_bound()
+        assert data.nbytes == self.data_layout.itemsize
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data.data, self.usage)
+
+    @contextmanager
+    def map(self, access=gl.GL_READ_WRITE):
+        assert self.is_currently_bound()
+        ptr = gl.glMapBuffer(gl.GL_ARRAY_BUFFER, access)
+        size = gl.glGetBufferParameteriv(gl.GL_ARRAY_BUFFER, gl.GL_BUFFER_SIZE)
+        a = np.ctypeslib.as_array(C.cast(ptr, C.POINTER(C.c_byte)), shape=(size,))
+        yield a.view(self.data_layout.base)
+        gl.glUnmapBuffer(gl.GL_ARRAY_BUFFER)
 
     def _destroy(self):
         if gl.glDeleteBuffers is not None:
@@ -396,11 +436,13 @@ class VBO(_BindableGlObject):
 
 
 class EBO(_BindableGlObject):
-    def __init__(self, *, usage=gl.GL_DYNAMIC_DRAW):
+    def __init__(self, data: np.ndarray, *, usage=gl.GL_DYNAMIC_DRAW):
         super().__init__(gl.glGenBuffers(1))
         self.usage = usage
         self.length = 0
         self.dtype = 0
+        with self:
+            self.allocate_and_write(data)
 
     @classmethod
     def _bind(cls, handle):
@@ -410,11 +452,11 @@ class EBO(_BindableGlObject):
     def _get_currently_bound(cls):
         return gl.glGetIntegerv(gl.GL_ELEMENT_ARRAY_BUFFER_BINDING)
 
-    def transfer_data_to_gpu(self, data: np.ndarray):
+    def allocate_and_write(self, data: np.ndarray):
         assert self.is_currently_bound()
         self.length = len(data)
-        self.dtype = np_to_gl_type(data.dtype)
-        gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data, self.usage)
+        self.dtype = np_to_gl_type(data.dtype.base)
+        gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, data.nbytes, data.data, self.usage)
 
     def draw_elements(self, mode):
         gl.glDrawElements(mode, self.length, self.dtype, None)

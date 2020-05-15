@@ -60,11 +60,7 @@ class Demo02(OpenGlApp):
             6, 7, 3
         ]
 
-        self.vao = VAO(vbo=VBO(self.program, vertex_data.dtype), ebo=EBO())
-        with self.vao:
-            self.vao.ebo.transfer_data_to_gpu(index_data)
-            self.vao.vbo.connect_vertex_attributes()
-            self.vao.vbo.transfer_data_to_gpu(vertex_data)
+        self.vao = VAO(vbo=VBO(vertex_data), ebo=EBO(index_data), connect_to=self.program)
 
         trans_model = mat4.scale(0.5) #@ mat4.rotate_axis_angle(0, 1/np.sqrt(2), 1/np.sqrt(2), np.pi / 4)
         trans_view = mat4.translate(2.0, 0, 5.0)
