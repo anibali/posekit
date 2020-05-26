@@ -1,7 +1,7 @@
 import numpy as np
-import torch
 
 from . import mat4
+from ..utils import is_torch_tensor
 
 
 def to_cartesian(points):
@@ -11,7 +11,8 @@ def to_cartesian(points):
 
 def to_homogeneous(points):
     """Convert from cartesian to homogeneous coordinates."""
-    if torch.is_tensor(points):
+    if is_torch_tensor(points):
+        import torch
         return torch.cat([points, torch.ones_like(points[..., -1:])], -1)
     else:
         return np.concatenate([points, np.ones_like(points[..., -1:])], -1)

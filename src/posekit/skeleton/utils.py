@@ -1,9 +1,8 @@
 import numpy as np
-import torch
 
 from glupy.math import point_set_registration, to_cartesian, to_homogeneous, ensure_cartesian
 from .common import Skeleton
-from ..utils import cast_array
+from ..utils import cast_array, is_torch_tensor, as_torch_tensor
 
 
 def assert_plausible_skeleton(joints, skeleton: Skeleton):
@@ -47,7 +46,7 @@ def absolute_to_root_relative(joints, skeleton: Skeleton):
 
 
 def absolute_to_parent_relative(joints, skeleton: Skeleton):
-    if torch.is_tensor(joints):
+    if is_torch_tensor(joints):
         relative = joints.clone()
     else:
         relative = joints.copy()
@@ -57,7 +56,7 @@ def absolute_to_parent_relative(joints, skeleton: Skeleton):
 
 
 def parent_relative_to_absolute(relative, skeleton: Skeleton):
-    if torch.is_tensor(relative):
+    if is_torch_tensor(relative):
         absolute = relative.clone()
     else:
         absolute = relative.copy()
@@ -71,8 +70,8 @@ def parent_relative_to_absolute(relative, skeleton: Skeleton):
 
 def joints_to_kcs(joints, skeleton: Skeleton):
     assert_plausible_skeleton(joints, skeleton)
-    C = torch.tensor(skeleton.kcs_matrix_c, dtype=joints.dtype, device=joints.device)
-    return torch.matmul(C, joints)
+    C = as_torch_tensor(skeleton.kcs_matrix_c, dtype=joints.dtype, device=joints.device)
+    return C @ joints
 
 
 def joints_to_limb_lengths(joints, skeleton: Skeleton):
@@ -94,7 +93,8 @@ def cartesian_to_spherical(cartesian):
     y = cartesian[..., 1]
     z = cartesian[..., 2]
     r = (cartesian ** 2).sum(-1) ** 0.5
-    if torch.is_tensor(cartesian):
+    if is_torch_tensor(cartesian):
+        import torch
         theta = (z / r).acos()
         phi = torch.atan2(y, x)
         return torch.stack([r, theta, phi], -1)
@@ -108,7 +108,8 @@ def spherical_to_cartesian(spherical):
     r = spherical[..., 0]
     theta = spherical[..., 1]
     phi = spherical[..., 2]
-    if torch.is_tensor(spherical):
+    if is_torch_tensor(spherical):
+        import torch
         sin_theta = theta.sin()
         x = r * sin_theta * phi.cos()
         y = r * sin_theta * phi.sin()
