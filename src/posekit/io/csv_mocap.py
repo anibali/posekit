@@ -1,4 +1,5 @@
 import csv
+import os
 
 import numpy as np
 
@@ -10,7 +11,7 @@ def load_csv_mocap(filename):
     # CSV is expected to have the following structure for columns:
     # [t, JOINT1_x, JOINT1_y, JOINT1_z, JOINT2_x, ...]
     # We also assume that positions are in mm, and that t follows a constant sample rate.
-    reader = csv.DictReader(open(filename))
+    reader = csv.DictReader(open(os.fspath(filename), 'r'))
     joint_names = [header[:-2] for header in list(reader.fieldnames)[1::3]]
     for skeleton_name in skeleton_registry._registry.keys():
         if joint_names == skeleton_registry[skeleton_name].joint_names:
