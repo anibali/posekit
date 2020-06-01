@@ -3,9 +3,10 @@ from pathlib import Path
 
 from .c3d_mocap import load_c3d_mocap, save_c3d_mocap
 from .csv_mocap import load_csv_mocap
+from .json_mocap import load_json_mocap, save_json_mocap
 from .mocap import Mocap
 
-SUPPORTED_FORMATS = {'csv', 'c3d'}
+SUPPORTED_FORMATS = {'csv', 'c3d', 'json'}
 
 
 def _infer_format(path, format):
@@ -28,6 +29,8 @@ def load_mocap(filename, format=None):
         return load_c3d_mocap(os.fspath(path))
     elif format == 'csv':
         return load_csv_mocap(os.fspath(path))
+    elif format == 'json':
+        return load_json_mocap(os.fspath(path))
     raise NotImplementedError(f'loading {format}')
 
 
@@ -37,4 +40,6 @@ def save_mocap(mocap: Mocap, filename, format=None):
 
     if format == 'c3d':
         return save_c3d_mocap(mocap, os.fspath(path))
+    elif format == 'json':
+        return save_json_mocap(mocap, os.fspath(path))
     raise NotImplementedError(f'saving {format}')
