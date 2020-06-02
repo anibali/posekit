@@ -16,7 +16,7 @@ def test_c3d_mocap():
         mocap2 = load_c3d_mocap(f.name)
     assert mocap2.skeleton_name == mocap1.skeleton_name
     assert mocap2.sample_rate == mocap1.sample_rate
-    assert_allclose(mocap2.joint_positions[..., :3], joints)
+    assert_allclose(mocap2.joint_positions, joints)
 
 
 def test_json_mocap():
@@ -27,7 +27,7 @@ def test_json_mocap():
         mocap2 = load_json_mocap(f.name)
     assert mocap2.skeleton_name == mocap1.skeleton_name
     assert mocap2.sample_rate == mocap1.sample_rate
-    assert_allclose(mocap2.joint_positions[..., :3], joints, rtol=0, atol=1e-6)
+    assert_allclose(mocap2.joint_positions, joints, rtol=0, atol=1e-6)
 
 
 def test_save_mocap(mocker):

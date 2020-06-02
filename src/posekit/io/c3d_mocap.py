@@ -23,5 +23,5 @@ def load_c3d_mocap(filename):
     c3d = ezc3d.c3d(os.fspath(filename))
     sample_rate = c3d['parameters']['POINT']['RATE']['value'][0]
     skeleton_name = c3d['parameters']['POINT']['SKEL']['value'][0]
-    joints = c3d['data']['points'].transpose(2, 1, 0)
+    joints = c3d['data']['points'].transpose(2, 1, 0)[..., :3].astype(np.float32)
     return Mocap(joints, skeleton_name, sample_rate)

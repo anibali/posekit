@@ -24,7 +24,7 @@ def load_csv_mocap(filename):
     dts = []
     poses = []
     for row in reader:
-        pose = np.zeros((skeleton.n_joints, 3))
+        pose = np.zeros((skeleton.n_joints, 3), dtype=np.float32)
         for j, joint_name in enumerate(skeleton.joint_names):
             pose[j, 0] = row[f'{joint_name}_x']
             pose[j, 1] = row[f'{joint_name}_y']

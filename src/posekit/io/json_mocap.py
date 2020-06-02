@@ -41,4 +41,4 @@ def save_json_mocap(mocap: Mocap, filename):
 def load_json_mocap(filename):
     with open(os.fspath(filename), 'r') as f:
         data = json.load(f)
-    return Mocap(np.asarray(data['points']), data['skel'], data['rate'])
+    return Mocap(np.asarray(data['points'], dtype=np.float32), data['skel'], data['rate'])

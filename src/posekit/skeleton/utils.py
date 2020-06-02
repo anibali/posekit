@@ -75,8 +75,8 @@ def joints_to_kcs(joints, skeleton: Skeleton):
 
 
 def joints_to_limb_lengths(joints, skeleton: Skeleton):
-    cartesian = absolute_to_parent_relative(joints, skeleton)
-    r = (cartesian ** 2).sum(-1)[..., None] ** 0.5
+    relative = absolute_to_parent_relative(joints, skeleton)
+    r = (relative ** 2).sum(-1)[..., None] ** 0.5
     return r
 
 
