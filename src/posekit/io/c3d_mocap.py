@@ -1,4 +1,3 @@
-import ezc3d
 import numpy as np
 import os
 
@@ -8,6 +7,7 @@ from posekit.skeleton.utils import assert_plausible_skeleton
 
 
 def save_c3d_mocap(mocap: Mocap, filename):
+    import ezc3d
     skeleton = skeleton_registry[mocap.skeleton_name]
     assert_plausible_skeleton(mocap.joint_positions, skeleton)
     c3d = ezc3d.c3d()
@@ -20,6 +20,7 @@ def save_c3d_mocap(mocap: Mocap, filename):
 
 
 def load_c3d_mocap(filename):
+    import ezc3d
     c3d = ezc3d.c3d(os.fspath(filename))
     sample_rate = c3d['parameters']['POINT']['RATE']['value'][0]
     skeleton_name = c3d['parameters']['POINT']['SKEL']['value'][0]
