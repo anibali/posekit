@@ -25,14 +25,14 @@ class OpenGlApp:
         self.context = Context(self.window)
         self.context.make_current()
 
+        self.keyboard = Keyboard()
+        self.mouse = Mouse()
+
         glfw.set_window_size_callback(self.window, self._reshape)
         glfw.set_window_close_callback(self.window, self._close)
         glfw.set_key_callback(self.window, self._key)
         glfw.set_mouse_button_callback(self.window, self._mouse_button)
         glfw.set_cursor_pos_callback(self.window, self._cursor_pos)
-
-        self.keyboard = Keyboard()
-        self.mouse = Mouse()
 
     @property
     def window_width(self):
