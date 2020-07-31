@@ -5,7 +5,8 @@ from torch.testing import assert_allclose
 
 from posekit.skeleton import skeleton_registry, skeleton_converter
 from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, move_joint_closer_, \
-    absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar
+    absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar, \
+    calculate_knee_neck_height
 
 
 def test_conversion_between_mpi3d_17j_and_h36m_17j():
@@ -115,3 +116,9 @@ def test_is_pose_similar(annot3):
     variant2 = annot3.copy()
     variant2[0, 0] = 100
     assert is_pose_similar(variant2, annot3, tolerance=1e-2) == False
+
+
+def test_calculate_knee_neck_height(annot3, skeleton):
+    expected = 1018.37
+    assert calculate_knee_neck_height(torch.as_tensor(annot3), skeleton.joint_names) == pytest.approx(expected, abs=0.01)
+    assert calculate_knee_neck_height(np.asarray(annot3), skeleton.joint_names) == pytest.approx(expected, abs=0.01)

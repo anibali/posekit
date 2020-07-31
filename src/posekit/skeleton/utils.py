@@ -167,7 +167,7 @@ def calculate_knee_neck_height(joints_3d, joint_names):
     This function is based on a code snippet provided courtesy of Dushyant Mehta.
 
     Args:
-        joints_3d (torch.Tensor): The 3D joint positions.
+        joints_3d: The 3D joint positions.
         joint_names (list): List of joint names for the skeleton.
 
     Returns:
@@ -182,11 +182,18 @@ def calculate_knee_neck_height(joints_3d, joint_names):
 
     joints_3d = ensure_cartesian(joints_3d, d=3)
 
-    return sum([
-        (joints_3d[left_knee] - joints_3d[left_hip]).norm(2).item(),
-        (joints_3d[spine] - joints_3d[pelvis]).norm(2).item(),
-        (joints_3d[neck] - joints_3d[spine]).norm(2).item(),
-    ])
+    if is_torch_tensor(joints_3d):
+        return sum([
+            (joints_3d[left_knee] - joints_3d[left_hip]).norm(2).item(),
+            (joints_3d[spine] - joints_3d[pelvis]).norm(2).item(),
+            (joints_3d[neck] - joints_3d[spine]).norm(2).item(),
+        ])
+    else:
+        return sum([
+            np.linalg.norm(joints_3d[left_knee] - joints_3d[left_hip], 2),
+            np.linalg.norm(joints_3d[spine] - joints_3d[pelvis], 2),
+            np.linalg.norm(joints_3d[neck] - joints_3d[spine], 2),
+        ])
 
 
 def make_eval_scale_skeleton_height(skeleton, untransform, target_height=920):
