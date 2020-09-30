@@ -18,12 +18,39 @@ def test_conversion_between_mpi3d_17j_and_h36m_17j():
 
 @pytest.mark.parametrize('src_skeleton_name', skeleton_registry._registry.keys())
 def test_convert_to_canonical(src_skeleton_name):
-    if src_skeleton_name in {'coco_17j', 'coco_19j', 'vnect_14j'}:
+    if src_skeleton_name in {'vnect_14j'}:
         pytest.skip()
     skeleton = skeleton_registry[src_skeleton_name]
     joints = torch.randn(skeleton.n_joints, 3)
     canonical_joints = skeleton_converter.convert(joints, src_skeleton_name, 'canonical')
     assert canonical_joints.shape == (17, 3)
+
+
+def test_conversion_from_coco_17j_to_mpii_16j(coco_keypoints, coco_image):
+    expected = torch.as_tensor([
+        [409.0000, 379.0000],
+        [412.0000, 338.0000],
+        [410.0000, 288.0000],
+        [439.0000, 285.0000],
+        [442.0000, 332.0000],
+        [444.0000, 382.0000],
+        [424.5000, 286.5000],
+        [418.9000, 232.2500],
+        [414.1000, 197.4800],
+        [404.5000, 151.4000],
+        [396.0000, 285.0000],
+        [388.0000, 248.0000],
+        [387.0000, 210.0000],
+        [446.0000, 208.0000],
+        [444.0000, 246.0000],
+        [419.0000, 265.0000],
+    ])
+    coco_annot2 = coco_keypoints[:, :2]
+    mpii_joints = skeleton_converter.convert(coco_annot2, 'coco_17j', 'mpii_16j')
+    # from posekit.draw import draw_pose_on_image_
+    # draw_pose_on_image_(mpii_joints.numpy(), skeleton_registry['mpii_16j'], coco_image)
+    # coco_image.show()
+    assert_allclose(mpii_joints, expected, rtol=0, atol=8)
 
 
 def test_assert_plausible_skeleton(annot2, skeleton):

@@ -1,14 +1,16 @@
+import json
 from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
+from PIL import Image
 
 
 @pytest.fixture
 def data_dir(request):
     path = Path(request.module.__file__)
     data_path: Path = path.parent.joinpath('data')
-    print(data_path)
     assert data_path.is_dir()
     return data_path
 
@@ -63,3 +65,15 @@ def annot3():
 def skeleton():
     from posekit.skeleton import skeleton_registry
     return skeleton_registry['mpi3d_17j']
+
+
+@pytest.fixture
+def coco_keypoints(data_dir):
+    with data_dir.joinpath('coco_annots_350070.json').open('r') as f:
+        annots = json.load(f)
+    return torch.as_tensor(annots[5]['keypoints'], dtype=torch.float32).view(17, 3)
+
+
+@pytest.fixture
+def coco_image(data_dir):
+    return Image.open(data_dir.joinpath('coco_image_350070.jpg'))

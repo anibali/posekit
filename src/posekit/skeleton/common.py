@@ -62,7 +62,7 @@ class Skeleton(metaclass=AutoRegister(_registry)):
     @property
     def root_joint_id(self):
         """The ID (index) of the root joint."""
-        return self.joint_names.index('pelvis')
+        return self.joint_index('pelvis')
 
     def get_joint_metadata(self, joint_id):
         name = self.joint_names[joint_id]
