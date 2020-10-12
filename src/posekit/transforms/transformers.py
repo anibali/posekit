@@ -53,15 +53,13 @@ class CameraTransformer(MatrixBasedTransformer):
         self.sy = 1
 
     def get_centred_matrix(self, camera: CameraIntrinsics):
-        matrix = mat3.concatenate([
-            # Move principle point to origin
-            mat3.translate(-camera.x_0, -camera.y_0),
-            # Apply transformations
-            self.matrix,
-            # Restore principal point
-            mat3.translate(camera.x_0 * self.sx, camera.y_0 * self.sy),
-        ])
-        return matrix
+        # Move principle point to origin
+        m = mat3.translate(-camera.x_0, -camera.y_0)
+        # Apply transformations
+        m = self.matrix @ m
+        # Restore principal point
+        mat3.do_translate_(m, camera.x_0 * self.sx, camera.y_0 * self.sy)
+        return m
 
     def zoom(self, sx, sy):
         self.mm(mat3.scale(sx, sy))

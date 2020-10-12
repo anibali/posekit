@@ -8,9 +8,9 @@ def identity():
 def affine(A=None, t=None):
     aff = identity()
     if A is not None:
-        aff[0:3, 0:3] = np.array(A, dtype=aff.dtype)
+        aff[0:3, 0:3] = A
     if t is not None:
-        aff[0:3, 3] = np.array(t, dtype=aff.dtype)
+        aff[0:3, 3] = t
     return aff
 
 
@@ -22,9 +22,35 @@ def flip_x(x=0):
                   t=[2 * x, 0, 0])
 
 
+def do_flip_x_(m, x=0):
+    """Add a horizontal flip to a transformation matrix.
+
+    Args:
+        m: The 4x4 affine transformation matrix.
+        x: The plane to flip about.
+    """
+    m[0] *= -1
+    if x != 0:
+        m[0, 3] += 2 * x
+
+
 def translate(tx, ty, tz):
     """Translate."""
     return affine(t=[tx, ty, tz])
+
+
+def do_translate_(m, tx, ty, tz):
+    """Add a translation to a transformation matrix.
+
+    Args:
+        m: The 4x4 affine transformation matrix.
+        tx: Translation in the x direction.
+        ty: Translation in the y direction.
+        tz: Translation in the z direction.
+    """
+    m[0, 3] += tx
+    m[1, 3] += ty
+    m[2, 3] += tz
 
 
 def rotate_quaternion(qr, qi, qj, qk):
@@ -49,6 +75,22 @@ def scale(sx, sy=None, sz=None):
     return affine(A=[[sx,  0,  0],
                      [ 0, sy,  0],
                      [ 0,  0, sz]])
+
+
+def do_scale_(m, sx, sy=None, sz=None):
+    """Add a scale transform to a transformation matrix.
+
+    Args:
+        m: The 4x4 affine transformation matrix.
+        sx: x-axis scale factor.
+        sy: y-axis scale factor.
+        sz: z-axis scale factor.
+    """
+    if sy is None: sy = sx
+    if sz is None: sz = sy
+    m[0] *= sx
+    m[1] *= sy
+    m[2] *= sz
 
 
 def perspective(fov_y, aspect, near, far):
