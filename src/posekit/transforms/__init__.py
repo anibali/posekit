@@ -185,19 +185,18 @@ class ResetPrincipalPoint(Transform):
     def __init__(self):
         super().__init__()
 
-    def _make_matrix(self, ctx):
+    def _calc_translation(self, ctx):
         sx = ctx.camera_transformer.sx
         sy = ctx.camera_transformer.sy
-        return mat3.translate(
-            (ctx.image_transformer.orig_width / 2 - ctx.orig_camera.x_0) * sx,
-            (ctx.image_transformer.orig_height / 2 - ctx.orig_camera.y_0) * sy,
-        )
+        tx = (ctx.image_transformer.orig_width / 2 - ctx.orig_camera.x_0) * sx
+        ty = (ctx.image_transformer.orig_height / 2 - ctx.orig_camera.y_0) * sy
+        return (tx, ty)
 
     def add_camera_transform(self, ctx):
-        ctx.camera_transformer.mm(self._make_matrix(ctx))
+        mat3.do_translate_(ctx.camera_transformer.matrix, *self._calc_translation(ctx))
 
     def add_image_transform(self, ctx):
-        ctx.image_transformer.mm(self._make_matrix(ctx))
+        mat3.do_translate_(ctx.image_transformer.matrix, *self._calc_translation(ctx))
 
     def add_point_transform(self, ctx):
         pass
