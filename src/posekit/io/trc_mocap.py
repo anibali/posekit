@@ -5,6 +5,7 @@ https://simtk-confluence.stanford.edu:8443/display/OpenSim/Marker+%28.trc%29+Fil
 """
 
 import os
+from copy import deepcopy
 
 import numpy as np
 
@@ -61,3 +62,16 @@ def load_trc_mocap(filename):
     assert len(poses) == int(metadata['NumFrames'])
     # Return a Mocap object representing the data.
     return Mocap(np.stack(poses), skeleton_name, int(metadata['DataRate']))
+
+
+def save_opensim_trc_mocap(mocap: Mocap, filename):
+    """Save an OpenSim-friendly .trc file.
+    """
+    mocap = deepcopy(mocap)
+    skeleton = skeleton_registry[mocap.skeleton_name]
+    ref_pos = mocap.joint_positions[0, skeleton.root_joint_id]
+    # Make all joint locations relative to the initial root joint location.
+    mocap.joint_positions -= ref_pos
+    # Flip y and z axes.
+    mocap.joint_positions[:, :, [1, 2]] *= -1
+    save_trc_mocap(mocap, filename)
