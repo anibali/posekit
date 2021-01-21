@@ -6,7 +6,7 @@ from torch.testing import assert_allclose
 from posekit.skeleton import skeleton_registry, skeleton_converter
 from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, move_joint_closer_, \
     absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar, \
-    calculate_knee_neck_height
+    calculate_knee_neck_height, flip_joints
 
 
 def test_conversion_between_mpi3d_17j_and_h36m_17j():
@@ -149,3 +149,19 @@ def test_calculate_knee_neck_height(annot3, skeleton):
     expected = 1018.37
     assert calculate_knee_neck_height(torch.as_tensor(annot3), skeleton.joint_names) == pytest.approx(expected, abs=0.01)
     assert calculate_knee_neck_height(np.asarray(annot3), skeleton.joint_names) == pytest.approx(expected, abs=0.01)
+
+
+def test_smpl_24j(smpl_keypoints):
+    skeleton = skeleton_registry['smpl_24j']
+    assert smpl_keypoints[skeleton.joint_index('left_hip')][1] > \
+           smpl_keypoints[skeleton.joint_index('left_knee')][1] > \
+           smpl_keypoints[skeleton.joint_index('left_ankle')][1]
+    assert smpl_keypoints[skeleton.joint_index('right_hip')][1] > \
+           smpl_keypoints[skeleton.joint_index('right_knee')][1] > \
+           smpl_keypoints[skeleton.joint_index('right_ankle')][1]
+    assert smpl_keypoints[skeleton.joint_index('head')][1] > \
+           smpl_keypoints[skeleton.joint_index('neck')][1] > \
+           smpl_keypoints[skeleton.joint_index('spine2')][1] > \
+           smpl_keypoints[skeleton.joint_index('spine1')][1] > \
+           smpl_keypoints[skeleton.joint_index('spine')][1] > \
+           smpl_keypoints[skeleton.joint_index('pelvis')][1]

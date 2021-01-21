@@ -356,6 +356,47 @@ class Lsp15jSkeleton(Skeleton):
         )
 
 
+# Joints for the SMPL body model.
+# See https://github.com/gulvarol/surreal/blob/master/datageneration/misc/smpl_relations/smpl_relations.py
+# and Fig. 3. from "Hierarchical Kinematic Human Mesh Recovery".
+class Smpl24jSkeleton(Skeleton):
+    name = 'smpl_24j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'pelvis', 'left_hip', 'right_hip',
+                'spine', 'left_knee', 'right_knee',
+                'spine1', 'left_ankle', 'right_ankle',
+                'spine2', 'left_foot', 'right_foot',
+                'neck', 'left_collar', 'right_collar',
+                'head', 'left_shoulder', 'right_shoulder',
+                'left_elbow', 'right_elbow', 'left_wrist',
+                'right_wrist', 'left_hand', 'right_hand',
+            ],
+            joint_tree=[
+                0, 0, 0,
+                0, 1, 2,
+                3, 4, 5,
+                6, 7, 8,
+                9, 12, 12,
+                12, 13, 14,
+                16, 17, 18,
+                19, 20, 21,
+            ],
+            hflip_indices=[
+                0, 2, 1,
+                3, 5, 4,
+                6, 8, 7,
+                9, 11, 10,
+                12, 14, 13,
+                15, 17, 16,
+                19, 18, 21,
+                20, 23, 22,
+            ]
+        )
+
+
 def setup_canonical_skeleton_alias(aliased_skeleton_class):
     class CanonicalSkeleton(aliased_skeleton_class):
         name = 'canonical'
