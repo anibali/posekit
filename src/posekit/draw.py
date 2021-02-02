@@ -20,6 +20,7 @@ def draw_pose_on_image_(
     joints_2d: np.ndarray,
     skeleton: Skeleton,
     image: PIL.Image.Image,
+    line_width: int = 1,
     point_radius: int = 2,
     visibilities=None,
 ):
@@ -31,6 +32,8 @@ def draw_pose_on_image_(
         joints_2d: The 2D joint locations (in pixels).
         skeleton: The skeleton description.
         image: The image to overlay the drawn pose on.
+        line_width: The width of lines between joint locations. No lines will be drawn when
+            ``line_width=0``.
         point_radius: The radius of circles indicating joint locations. No circles will be drawn
             when ``point_radius=0``.
         visibilities: A mask describing which joints are visible.
@@ -50,9 +53,10 @@ def draw_pose_on_image_(
             if not visibilities[parent_id]:
                 limb_colours[joint_id] = _lighten_colour(colours[joint_id])
     # Draw lines for limbs.
-    for joint_id, (joint, colour) in enumerate(zip(joints_2d, limb_colours)):
-        parent = joints_2d[skeleton.joint_tree[joint_id]]
-        draw.line([*joint.tolist(), *parent.tolist()], fill=colour, width=1)
+    if line_width > 0:
+        for joint_id, (joint, colour) in enumerate(zip(joints_2d, limb_colours)):
+            parent = joints_2d[skeleton.joint_tree[joint_id]]
+            draw.line([*joint.tolist(), *parent.tolist()], fill=colour, width=line_width)
     # Draw points for joints.
     if point_radius > 0:
         for joint, colour in zip(joints_2d, joint_colours):
