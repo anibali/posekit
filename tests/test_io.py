@@ -5,6 +5,7 @@ from numpy.testing import assert_allclose
 
 from posekit.io import Mocap, save_mocap
 from posekit.io.c3d_mocap import save_c3d_mocap, load_c3d_mocap
+from posekit.io.csv_mocap import save_csv_mocap, load_csv_mocap
 from posekit.io.json_mocap import save_json_mocap, load_json_mocap
 from posekit.io.trc_mocap import save_trc_mocap, load_trc_mocap, save_opensim_trc_mocap
 from posekit.skeleton import skeleton_registry
@@ -19,6 +20,17 @@ def test_c3d_mocap():
     assert mocap2.skeleton_name == mocap1.skeleton_name
     assert mocap2.sample_rate == mocap1.sample_rate
     assert_allclose(mocap2.joint_positions, joints)
+
+
+def test_csv_mocap():
+    with NamedTemporaryFile(suffix='.csv') as f:
+        joints = np.random.rand(10, 16, 3)
+        mocap1 = Mocap(joints, 'mpii_16j', 50)
+        save_csv_mocap(mocap1, f.name)
+        mocap2 = load_csv_mocap(f.name)
+    assert mocap2.skeleton_name == mocap1.skeleton_name
+    assert mocap2.sample_rate == mocap1.sample_rate
+    assert_allclose(mocap2.joint_positions, joints, rtol=0, atol=1e-6)
 
 
 def test_json_mocap():

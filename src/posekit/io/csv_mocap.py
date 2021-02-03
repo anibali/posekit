@@ -3,8 +3,31 @@ import os
 
 import numpy as np
 
+from glupy.math import ensure_cartesian
 from posekit.io.mocap import Mocap
 from posekit.skeleton import skeleton_registry
+from posekit.skeleton.utils import assert_plausible_skeleton
+
+
+def save_csv_mocap(mocap: Mocap, filename):
+    skeleton = skeleton_registry[mocap.skeleton_name]
+    assert_plausible_skeleton(mocap.joint_positions, skeleton)
+    with open(os.fspath(filename), 'w') as f:
+        fieldnames = ['t']
+        for joint_name in skeleton.joint_names:
+            for coord_name in 'xyz':
+                fieldnames.append(f'{joint_name}_{coord_name}')
+        writer = csv.writer(f)
+        writer.writerow(fieldnames)
+
+        joint_positions = ensure_cartesian(mocap.joint_positions, d=3)
+        sample_period = 1 / mocap.sample_rate
+        for i, pose in enumerate(joint_positions):
+            row = [f'{i * sample_period:.4f}']
+            for point in pose:
+                for x in point:
+                    row.append(f'{x:.6f}')
+            writer.writerow(row)
 
 
 def load_csv_mocap(filename):

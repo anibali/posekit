@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from .c3d_mocap import load_c3d_mocap, save_c3d_mocap
-from .csv_mocap import load_csv_mocap
+from .csv_mocap import load_csv_mocap, save_csv_mocap
 from .json_mocap import load_json_mocap, save_json_mocap
 from .trc_mocap import load_trc_mocap, save_trc_mocap
 from .mocap import Mocap
@@ -43,6 +43,8 @@ def save_mocap(mocap: Mocap, filename, format=None):
 
     if format == 'c3d':
         return save_c3d_mocap(mocap, os.fspath(path))
+    elif format == 'csv':
+        return save_csv_mocap(mocap, os.fspath(path))
     elif format == 'json':
         return save_json_mocap(mocap, os.fspath(path))
     elif format == 'trc':
