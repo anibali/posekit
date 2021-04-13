@@ -154,7 +154,7 @@ class Coco19jSkeleton(Skeleton):
 
 # COCO keypoint locations as used by OpenPose.
 # See:
-# * https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/output.md
+# * https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/1f1aa9c59fe59c90cca685b724f4f97f76137224/doc/02_output.md#pose-output-format-coco
 # * https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/16ab72801d9ebfee12903a6678b0e41e7956cb7e/src/openpose/pose/poseParameters.cpp#L35-L55
 class OpenPose18jSkeleton(Skeleton):
     name = 'openpose_18j'
@@ -183,6 +183,39 @@ class OpenPose18jSkeleton(Skeleton):
 
     def root_joint_id(self):
         return self.joint_index('neck')
+
+
+# OpenPose (25-joint).
+# See:
+# * https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/1f1aa9c59fe59c90cca685b724f4f97f76137224/doc/02_output.md#pose-output-format-body_25
+# * https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/16ab72801d9ebfee12903a6678b0e41e7956cb7e/src/openpose/pose/poseParameters.cpp#L7-L34
+class OpenPose25jSkeleton(Skeleton):
+    name = 'openpose_25j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'nose', 'neck', 'right_shoulder', 'right_elbow', 'right_wrist',
+                'left_shoulder', 'left_elbow', 'left_wrist', 'pelvis', 'right_hip',
+                'right_knee', 'right_ankle', 'left_hip', 'left_knee', 'left_ankle',
+                'right_eye', 'left_eye', 'right_ear', 'left_ear', 'left_big_toe',
+                'left_small_toe', 'left_heel', 'right_big_toe', 'right_small_toe', 'right_heel',
+            ],
+            joint_tree=[
+                1, 8, 1, 2, 3,
+                1, 5, 6, 8, 8,
+                9, 10, 8, 12, 13,
+                0, 0, 15, 16, 14,
+                19, 14, 11, 22, 11,
+            ],
+            hflip_indices=[
+                0, 1, 5, 6, 7,
+                2, 3, 4, 8, 12,
+                13, 14, 9, 10, 11,
+                16, 15, 18, 17, 22,
+                23, 24, 19, 20, 21,
+            ]
+        )
 
 
 class Mpi3d17jSkeleton(Skeleton):
@@ -500,6 +533,11 @@ def convert_coco_19j_to_coco_17j(joints, from_skeleton, to_skeleton):
     return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
 
 
+@skeleton_converter.register('openpose_25j', 'openpose_18j')
+def convert_openpose_25j_to_openpose_18j(joints, from_skeleton, to_skeleton):
+    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+
+
 @skeleton_converter.register('openpose_18j', 'coco_19j')
 def convert_openpose_18j_to_coco_19j(joints, from_skeleton, to_skeleton):
     joint_names = ['left_hip' if s == 'pelvis' else s for s in to_skeleton.joint_names]
@@ -508,24 +546,24 @@ def convert_openpose_18j_to_coco_19j(joints, from_skeleton, to_skeleton):
     return dest_joints
 
 
-@skeleton_converter.register('coco_19j', 'openpose_18j')
-def convert_coco_19j_to_openpose_18j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-
-@skeleton_converter.register('coco_19j', 'mpii_16j')
-def convert_coco_19j_to_mpii_16j(joints, from_skeleton, to_skeleton):
+@skeleton_converter.register('coco_19j', 'h36m_17j')
+def convert_coco_19j_to_h36m_17j(joints, from_skeleton, to_skeleton):
     neck = joints[..., from_skeleton.joint_index('neck'), :]
     ears = 0.5 * joints[..., from_skeleton.joint_index('left_ear'), :] + 0.5 * joints[..., from_skeleton.joint_index('right_ear'), :]
     neck_to_ears = ears - neck
     head_top = 0.6 * neck_to_ears + ears  # TODO: Tweak this factor using real examples.
-    map = {'head_top': 'neck', 'spine': 'pelvis'}
+    map = {'head_top': 'neck', 'spine': 'pelvis', 'head': 'nose'}
     joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
     dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
     dest_joints[..., to_skeleton.joint_index('head_top'), :] = head_top
-    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'neck', 0.7)  # TODO: Tweak this factor using real examples.
+    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'neck', 0.371)  # TODO: Tweak this factor using real examples.
     move_joint_closer_(dest_joints, to_skeleton, 'neck', 'head_top', 0.2)  # TODO: Tweak this factor using real examples.
     return dest_joints
+
+
+@skeleton_converter.register('coco_19j', 'openpose_18j')
+def convert_coco_19j_to_openpose_18j(joints, from_skeleton, to_skeleton):
+    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
 
 
 @skeleton_converter.register('mpii_16j', 'aspset_17j')

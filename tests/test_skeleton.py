@@ -6,7 +6,7 @@ from torch.testing import assert_allclose
 from posekit.skeleton import skeleton_registry, skeleton_converter
 from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, move_joint_closer_, \
     absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar, \
-    calculate_knee_neck_height, flip_joints
+    calculate_knee_neck_height
 
 
 def test_conversion_between_mpi3d_17j_and_h36m_17j():
@@ -18,7 +18,7 @@ def test_conversion_between_mpi3d_17j_and_h36m_17j():
 
 @pytest.mark.parametrize('src_skeleton_name', skeleton_registry._registry.keys())
 def test_convert_to_canonical(src_skeleton_name):
-    if src_skeleton_name in {'vnect_14j'}:
+    if src_skeleton_name in {'vnect_14j', 'smpl_24j'}:
         pytest.skip()
     skeleton = skeleton_registry[src_skeleton_name]
     joints = torch.randn(skeleton.n_joints, 3)
