@@ -1,9 +1,11 @@
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import numpy as np
 from numpy.testing import assert_allclose
 
 from posekit.io import Mocap, save_mocap
+from posekit.io.bvh_mocap import save_bvh_mocap
 from posekit.io.c3d_mocap import save_c3d_mocap, load_c3d_mocap
 from posekit.io.csv_mocap import save_csv_mocap, load_csv_mocap
 from posekit.io.json_mocap import save_json_mocap, load_json_mocap
@@ -68,6 +70,16 @@ def test_opensim_trc_mocap():
     joints_opensim -= joints_opensim[0, skeleton.root_joint_id]
     joints_opensim[:, :, [1, 2]] *= -1
     assert_allclose(mocap2.joint_positions, joints_opensim, rtol=0, atol=1e-6)
+
+
+def test_bvh_mocap():
+    with NamedTemporaryFile(suffix='.bvh') as f:
+        joints = np.random.rand(10, 17, 3)
+        mocap1 = Mocap(joints, 'h36m_17j', 50)
+        save_bvh_mocap(mocap1, f.name)
+        bvh_text = Path(f.name).read_text()
+    assert 'Frames: 10' in bvh_text
+    assert 'Frame Time: 0.02' in bvh_text
 
 
 def test_save_mocap(mocker):
