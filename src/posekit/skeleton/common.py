@@ -73,3 +73,9 @@ class Skeleton(metaclass=AutoRegister(_registry)):
         else:
             group = 'centre'
         return dict(parent=self.joint_tree[joint_id], group=group)
+
+    @property
+    def leaf_joint_indices(self):
+        """A list of indices for joints that do not have any children.
+        """
+        return [i for i in range(self.n_joints) if i not in self.joint_tree]
