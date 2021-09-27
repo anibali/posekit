@@ -38,7 +38,7 @@ def draw_pose_on_image_(
             when ``point_radius=0``.
         visibilities: A mask describing which joints are visible.
     """
-    joints_2d = np.asarray(joints_2d, dtype=np.int)
+    joints_2d = np.asarray(joints_2d, dtype=np.int32)
     draw = PIL.ImageDraw.Draw(image)
     # Determine colours.
     colours = [_GROUP_COLOURS.get(skeleton.get_joint_metadata(joint_id)['group'], _DEFAULT_COLOUR)
