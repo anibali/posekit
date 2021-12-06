@@ -545,6 +545,14 @@ def convert_posetrack_16j_to_h36m_17j(joints, from_skeleton, to_skeleton):
     return dest_joints
 
 
+@skeleton_converter.register('h36m_17j', 'posetrack_16j')
+def convert_h36m_17j_to_posetrack_16j(joints, from_skeleton, to_skeleton):
+    map = {'nose': 'head'}
+    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
+    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+    return dest_joints
+
+
 @skeleton_converter.register('h36m_32j', 'h36m_17j')
 def convert_h36m_32j_to_h36m_17j(joints, from_skeleton, to_skeleton):
     return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)

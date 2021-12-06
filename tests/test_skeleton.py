@@ -16,6 +16,13 @@ def test_conversion_between_mpi3d_17j_and_h36m_17j():
     assert_allclose(joints1, joints3)
 
 
+def test_conversion_between_posetrack_16j_and_h36m_17j():
+    joints1 = torch.randn(4, 16, 2)
+    joints2 = skeleton_converter.convert(joints1, 'posetrack_16j', 'h36m_17j')
+    joints3 = skeleton_converter.convert(joints2, 'h36m_17j', 'posetrack_16j')
+    assert_allclose(joints1, joints3)
+
+
 @pytest.mark.parametrize('src_skeleton_name', skeleton_registry._registry.keys())
 def test_convert_to_canonical(src_skeleton_name):
     if src_skeleton_name in {'vnect_14j', 'smpl_24j'}:
