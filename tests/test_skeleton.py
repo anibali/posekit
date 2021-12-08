@@ -86,7 +86,7 @@ def test_move_joint_closer(annot3, skeleton):
 
 def test_absolute_to_root_relative(annot3, skeleton):
     new_annot3 = absolute_to_root_relative(annot3, skeleton)
-    assert_allclose(new_annot3[skeleton.root_joint_id], 0)
+    assert_allclose(new_annot3[skeleton.root_joint_id], torch.zeros((3,)))
 
 
 def test_joints_to_limb_lengths(annot3, skeleton):

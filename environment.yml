@@ -1,16 +1,22 @@
 name: posekit
-channels:
-  - pytorch
-  - conda-forge
-  - defaults
 dependencies:
-  - python=3.7
-  - pip=19.2.3
-  - cudatoolkit=10.0.130=0
-  - ezc3d=1.1.1=py37h9de70de_0
-  - pytorch=1.2.0=py3.7_cuda10.0.130_cudnn7.6.2_0
-  - torchvision=0.4.0=py37_cu100
-  - swig=3.0.12=h38cdd7d_3
-  - glfw=3.3
+  - python=3.7.11
+  - pip=21.2.2
+  - cudatoolkit=11.3
+  - conda-forge::ezc3d=1.1.1
+  - pytorch::pytorch=1.10.0
+  - pytorch::torchvision=0.11.1
+  - swig=4.0.2
+  - conda-forge::glfw=3.3
   - scipy=1.4.1
   - cmake=3.14.0
+  - pytest=5.2.0
+  - pytest-mock=1.11.2
+  - hypothesis=4.44.2
+  - toolz=0.10.0
+  - pip:
+    - phx-class-registry==3.0.5
+    - tvl-backends-nvdec==0.1.0b18
+    - glfw==1.8.3
+    - PyOpenGL==3.1.5
+    - PyOpenGL-accelerate==3.1.5
