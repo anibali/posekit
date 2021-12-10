@@ -1,6 +1,9 @@
-from .common import Skeleton
+from typing import Dict, Optional
+
+import numpy as np
+
+from .common import Skeleton, skeleton_registry
 from .converter import skeleton_converter
-from .utils import move_joint_closer_, move_joint_farther_
 
 
 class H36m17jSkeleton(Skeleton):
@@ -496,226 +499,130 @@ class Smpl24jSkeleton(Skeleton):
         )
 
 
-def setup_canonical_skeleton_alias(aliased_skeleton_class):
+def _setup_canonical_skeleton_alias(aliased_skeleton_class):
     class CanonicalSkeleton(aliased_skeleton_class):
         name = 'canonical'
+    skeleton_converter.create_matrix(CanonicalSkeleton.name, aliased_skeleton_class.name)
+    skeleton_converter.create_matrix(aliased_skeleton_class.name, CanonicalSkeleton.name)
+
+
+_setup_canonical_skeleton_alias(H36m17jSkeleton)
+
+
+def _tweak_joint_position(skeleton: Skeleton, joint_name: str, other_joint_name: str, factor: float):
+    """Create a matrix which tweaks a joint position.
+
+    Args:
+        skeleton: The skeleton definition.
+        joint_name: The joint name.
+        other_joint_name: The other joint name.
+        factor: The mixing factor. If set to 1.0, the joint will be unaffected.
+            If set to 0.0, the joint will copy the other joint perfectly. Note that the tweak can
+            be undone by applying another tweak with 1 / factor.
+
+    Returns:
+        A matrix for applying the tweak.
+    """
+    m = np.eye(skeleton.n_joints)
+    m[skeleton.joint_index(joint_name), skeleton.joint_index(joint_name)] = factor
+    m[skeleton.joint_index(other_joint_name), skeleton.joint_index(joint_name)] = 1 - factor
+    return m
 
-    @skeleton_converter.register(CanonicalSkeleton.name, aliased_skeleton_class.name)
-    def convert_canonical_to_aliased(joints, from_skeleton, to_skeleton):
-        return joints
 
-    @skeleton_converter.register(aliased_skeleton_class.name, CanonicalSkeleton.name)
-    def convert_aliased_to_canonical(joints, from_skeleton, to_skeleton):
-        return joints
+def _create_conversion_matrices():
+    skeleton_converter.create_matrix('posetrack_15j', 'posetrack_16j', joint_map={
+        'pelvis': {'left_hip': 0.5, 'right_hip': 0.5},
+    })
 
+    skeleton_converter.create_matrix('posetrack_16j', 'posetrack_15j')
 
-setup_canonical_skeleton_alias(H36m17jSkeleton)
+    skeleton_converter.create_matrix('posetrack_16j', 'h36m_17j', joint_map={
+        'spine': {'pelvis': 0.629, 'neck': 1 - 0.629},
+        'head': {'nose': 1.0},
+    })
 
+    skeleton_converter.create_matrix('h36m_17j', 'posetrack_16j', joint_map={
+        'nose': {'head': 1.0},
+    })
 
-def _subset_of_joints(joints, from_skeleton, joint_names):
-    joint_indices = [from_skeleton.joint_index(s) for s in joint_names]
-    return joints[..., joint_indices, :]
+    skeleton_converter.create_matrix('h36m_32j', 'h36m_17j')
 
+    skeleton_converter.create_matrix('mpi3d_28j', 'mpi3d_17j')
 
-@skeleton_converter.register('posetrack_15j', 'posetrack_16j')
-def convert_posetrack_15j_to_posetrack_16j(joints, from_skeleton, to_skeleton):
-    map = {
-        'pelvis': 'left_hip',
-    }
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+    skeleton_converter.create_matrix('mpi3d_17j', 'vnect_14j')
 
-    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
+    skeleton_converter.create_matrix('mpii_16j', 'h36m_17j', joint_map={
+        # There is no 'head' joint in MPII, so we will interpolate between
+        # 'head_top' and 'neck'. This is not a perfect solution, but it will have to do.
+        'head': {'neck': 0.5, 'head_top': 0.5},
+        # The 'spine' joint in MPII is close to the neck, not in the middle of the back.
+        # Therefore we need to move it closer to the pelvis.
+        'spine': {'spine': 0.53, 'pelvis': 1 - 0.53},
+    })
 
-    return dest_joints
+    skeleton_converter.create_matrix('h36m_17j', 'mpii_16j', joint_map={
+        'spine': {'spine': 1 / 0.53, 'pelvis': 1 - 1 / 0.53},
+    })
 
+    skeleton_converter.create_matrix('h36m_17j', 'mpi3d_17j', joint_map={
+        # Pelvis lift (pelvis is lower in Human3.6M compared to MPI-INF-3DHP).
+        'pelvis': {'pelvis': 0.93, 'spine': 1 - 0.93},
+        'left_hip': {'left_hip': 0.93, 'spine': 1 - 0.93},
+        'right_hip': {'right_hip': 0.93, 'spine': 1 - 0.93},
+    })
 
-@skeleton_converter.register('posetrack_16j', 'posetrack_15j')
-def convert_posetrack_16j_to_posetrack_15j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+    skeleton_converter.create_matrix('mpi3d_17j', 'h36m_17j', joint_map={
+        # Pelvis drop (pelvis is lower in Human3.6M compared to MPI-INF-3DHP).
+        'pelvis': {'pelvis': 1 / 0.93, 'spine': 1 - 1 / 0.93},
+        'left_hip': {'left_hip': 1 / 0.93, 'spine': 1 - 1 / 0.93},
+        'right_hip': {'right_hip': 1 / 0.93, 'spine': 1 - 1 / 0.93},
+    })
 
+    skeleton_converter.create_matrix('coco_17j', 'coco_19j', joint_map={
+        'pelvis': {'left_hip': 0.5, 'right_hip': 0.5},
+        'neck': {'left_shoulder': 0.5, 'right_shoulder': 0.5},
+    })
 
-@skeleton_converter.register('posetrack_16j', 'h36m_17j')
-def convert_posetrack_16j_to_h36m_17j(joints, from_skeleton, to_skeleton):
-    map = {'spine': 'pelvis', 'head': 'nose'}
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'neck', 0.371)
-    return dest_joints
+    skeleton_converter.create_matrix('coco_19j', 'coco_17j')
 
+    skeleton_converter.create_matrix('openpose_25j', 'openpose_18j')
 
-@skeleton_converter.register('h36m_17j', 'posetrack_16j')
-def convert_h36m_17j_to_posetrack_16j(joints, from_skeleton, to_skeleton):
-    map = {'nose': 'head'}
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-    return dest_joints
+    skeleton_converter.create_matrix('openpose_18j', 'coco_19j', joint_map={
+        'pelvis': {'left_hip': 0.5, 'right_hip': 0.5},
+    })
 
+    skeleton_converter.create_matrix('coco_19j', 'openpose_18j')
 
-@skeleton_converter.register('h36m_32j', 'h36m_17j')
-def convert_h36m_32j_to_h36m_17j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+    c = 0.6
+    mat = skeleton_converter.create_matrix('coco_19j', 'h36m_17j', joint_map={
+        'spine': {'pelvis': 0.629, 'neck': (1 - 0.629)},
+        'head': {'nose': 1.0},
+        'head_top': {'left_ear': (1 + c) * 0.5, 'right_ear': (1 + c) * 0.5, 'neck': -c},
+    })
+    np.matmul(mat, _tweak_joint_position(skeleton_registry['h36m_17j'], 'neck', 'head_top', 0.8), out=mat)
 
+    skeleton_converter.create_matrix('mpii_16j', 'aspset_17j', joint_map={
+        'head': {'head_top': 0.33, 'neck': 1 - 0.67},
+        'pelvis': {'pelvis': 0.84, 'spine': 0.48, 'neck': -0.32},
+        'spine': {'spine': 0.66, 'pelvis': 0.53, 'neck': -0.20}
+    })
 
-@skeleton_converter.register('mpi3d_28j', 'mpi3d_17j')
-def convert_mpi3d_28j_to_mpi3d_17j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+    skeleton_converter.create_matrix('aspset_17j', 'mpii_16j', joint_map={
+        'pelvis': {'left_hip': 0.5, 'right_hip': 0.5},
+        'spine': {'spine': -0.14, 'pelvis': 0.25, 'neck': 0.89},
+    })
 
+    skeleton_converter.create_matrix('lsp_14j', 'lsp_15j', joint_map={
+        'pelvis': {'left_hip': 0.5, 'right_hip': 0.5},
+    })
 
-@skeleton_converter.register('mpi3d_17j', 'vnect_14j')
-def convert_mpi3d_17j_to_vnect_14j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
+    skeleton_converter.create_matrix('lsp_15j', 'lsp_14j')
 
+    skeleton_converter.create_matrix('lsp_15j', 'mpii_16j', joint_map={
+        'spine': {'neck': 0.8, 'pelvis': 1 - 0.8},
+    })
 
-@skeleton_converter.register('mpii_16j', 'h36m_17j')
-def convert_mpii_16j_to_h36m_17j(joints, from_skeleton, to_skeleton):
-    joint_names = ['neck' if s == 'head' else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
+    skeleton_converter.create_matrix('mpii_16j', 'lsp_15j')
 
-    # There is no 'head' joint in MPII, so we will interpolate between
-    # 'head_top' and 'neck'. This is not a perfect solution, but it will have to do.
-    move_joint_closer_(dest_joints, to_skeleton, 'head', 'head_top', 0.5)
 
-    # The 'spine' joint in MPII is close to the neck, not in the middle of the back.
-    # Therefore we need to move it closer to the pelvis.
-    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'pelvis', 0.47)
-
-    return dest_joints
-
-
-@skeleton_converter.register('h36m_17j', 'mpii_16j')
-def convert_h36m_17j_to_mpii_16j(joints, from_skeleton, to_skeleton):
-    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-    move_joint_farther_(dest_joints, to_skeleton, 'spine', 'pelvis', 0.47)
-
-    return dest_joints
-
-
-@skeleton_converter.register('h36m_17j', 'mpi3d_17j')
-def convert_h36m_17j_to_mpi3d_17j(joints, from_skeleton, to_skeleton):
-    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-    # Pelvis lift (pelvis is lower in Human3.6M compared to MPI-INF-3DHP).
-    for joint_name in ['pelvis', 'left_hip', 'right_hip']:
-        move_joint_closer_(dest_joints, to_skeleton, joint_name, 'spine', 0.07)
-
-    return dest_joints
-
-
-@skeleton_converter.register('mpi3d_17j', 'h36m_17j')
-def convert_mpi3d_17j_to_h36m_17j(joints, from_skeleton, to_skeleton):
-    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-    # Pelvis drop (pelvis is lower in Human3.6M compared to MPI-INF-3DHP).
-    for joint_name in ['pelvis', 'left_hip', 'right_hip']:
-        move_joint_farther_(dest_joints, to_skeleton, joint_name, 'spine', 0.07)
-
-    return dest_joints
-
-
-@skeleton_converter.register('coco_17j', 'coco_19j')
-def convert_coco_17j_to_coco_19j(joints, from_skeleton, to_skeleton):
-    map = {
-        'pelvis': 'left_hip',
-        'neck': 'left_shoulder',
-    }
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-
-    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
-    move_joint_closer_(dest_joints, to_skeleton, 'neck', 'right_shoulder', 0.5)
-
-    return dest_joints
-
-
-@skeleton_converter.register('coco_19j', 'coco_17j')
-def convert_coco_19j_to_coco_17j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-
-@skeleton_converter.register('openpose_25j', 'openpose_18j')
-def convert_openpose_25j_to_openpose_18j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-
-@skeleton_converter.register('openpose_18j', 'coco_19j')
-def convert_openpose_18j_to_coco_19j(joints, from_skeleton, to_skeleton):
-    joint_names = ['left_hip' if s == 'pelvis' else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
-    return dest_joints
-
-
-@skeleton_converter.register('coco_19j', 'h36m_17j')
-def convert_coco_19j_to_h36m_17j(joints, from_skeleton, to_skeleton):
-    neck = joints[..., from_skeleton.joint_index('neck'), :]
-    ears = 0.5 * joints[..., from_skeleton.joint_index('left_ear'), :] + 0.5 * joints[..., from_skeleton.joint_index('right_ear'), :]
-    neck_to_ears = ears - neck
-    head_top = 0.6 * neck_to_ears + ears  # TODO: Tweak this factor using real examples.
-    map = {'head_top': 'neck', 'spine': 'pelvis', 'head': 'nose'}
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-    dest_joints[..., to_skeleton.joint_index('head_top'), :] = head_top
-    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'neck', 0.371)  # TODO: Tweak this factor using real examples.
-    move_joint_closer_(dest_joints, to_skeleton, 'neck', 'head_top', 0.2)  # TODO: Tweak this factor using real examples.
-    return dest_joints
-
-
-@skeleton_converter.register('coco_19j', 'openpose_18j')
-def convert_coco_19j_to_openpose_18j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-
-@skeleton_converter.register('mpii_16j', 'aspset_17j')
-def convert_mpii_16j_to_aspset_17j(joints, from_skeleton, to_skeleton):
-    head = 0.33 * joints[..., from_skeleton.joint_index('head_top'), :] + 0.67 * joints[..., from_skeleton.joint_index('neck'), :]
-    pelvis = 0.84 * joints[..., from_skeleton.joint_index('pelvis'), :] + 0.48 * joints[..., from_skeleton.joint_index('spine'), :] + -0.32 * joints[..., from_skeleton.joint_index('neck'), :]
-    spine = 0.53 * joints[..., from_skeleton.joint_index('pelvis'), :] + 0.66 * joints[..., from_skeleton.joint_index('spine'), :] + -0.20 * joints[..., from_skeleton.joint_index('neck'), :]
-    joint_names = ['neck' if s == 'head' else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-    dest_joints[..., to_skeleton.joint_index('head'), :] = head
-    dest_joints[..., to_skeleton.joint_index('pelvis'), :] = pelvis
-    dest_joints[..., to_skeleton.joint_index('spine'), :] = spine
-    return dest_joints
-
-
-@skeleton_converter.register('aspset_17j', 'mpii_16j')
-def convert_aspset_17j_to_mpii_16j(joints, from_skeleton, to_skeleton):
-    pelvis = 0.5 * joints[..., from_skeleton.joint_index('left_hip'), :] + 0.5 * joints[..., from_skeleton.joint_index('right_hip'), :]
-    spine = 0.25 * joints[..., from_skeleton.joint_index('pelvis'), :] + -0.14 * joints[..., from_skeleton.joint_index('spine'), :] + 0.89 * joints[..., from_skeleton.joint_index('neck'), :]
-    dest_joints = _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-    dest_joints[..., to_skeleton.joint_index('pelvis'), :] = pelvis
-    dest_joints[..., to_skeleton.joint_index('spine'), :] = spine
-    return dest_joints
-
-
-@skeleton_converter.register('lsp_14j', 'lsp_15j')
-def convert_lsp_14j_to_lsp_15j(joints, from_skeleton, to_skeleton):
-    map = {
-        'pelvis': 'left_hip',
-    }
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-
-    move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
-
-    return dest_joints
-
-
-@skeleton_converter.register('lsp_15j', 'lsp_14j')
-def convert_lsp_15j_to_lsp_14j(joints, from_skeleton, to_skeleton):
-    return _subset_of_joints(joints, from_skeleton, to_skeleton.joint_names)
-
-
-@skeleton_converter.register('lsp_15j', 'mpii_16j')
-def convert_lsp_15j_to_mpii_16j(joints, from_skeleton, to_skeleton):
-    map = {
-        'spine': 'neck',
-    }
-    joint_names = [map[s] if s in map else s for s in to_skeleton.joint_names]
-    dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
-
-    move_joint_closer_(dest_joints, to_skeleton, 'spine', 'pelvis', 0.2)
-
-    return dest_joints
+_create_conversion_matrices()

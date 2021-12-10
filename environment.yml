@@ -13,7 +13,6 @@ dependencies:
   - pytest=5.2.0
   - pytest-mock=1.11.2
   - hypothesis=4.44.2
-  - toolz=0.10.0
   - pip:
     - phx-class-registry==3.0.5
     - tvl-backends-nvdec==0.1.0b18

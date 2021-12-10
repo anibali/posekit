@@ -9,16 +9,6 @@ def assert_plausible_skeleton(joints, skeleton: Skeleton):
     assert joints.shape[-2] == skeleton.n_joints
 
 
-def move_joint_closer_(joints, skeleton: Skeleton, joint_name, other_joint_name, alpha):
-    joints[..., skeleton.joint_index(joint_name), :] *= (1 - alpha)
-    joints[..., skeleton.joint_index(joint_name), :] += alpha * joints[..., skeleton.joint_index(other_joint_name), :]
-
-
-def move_joint_farther_(joints, skeleton: Skeleton, joint_name, other_joint_name, alpha):
-    joints[..., skeleton.joint_index(joint_name), :] -= alpha * joints[..., skeleton.joint_index(other_joint_name), :]
-    joints[..., skeleton.joint_index(joint_name), :] /= (1 - alpha)
-
-
 def procrustes(ref_points, cor_points, points=None, *, reflection=False):
     """Align `cor_points` to `ref_points`, and apply the resulting transformation to `points`.
 

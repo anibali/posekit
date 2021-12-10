@@ -4,23 +4,29 @@ import torch
 from torch.testing import assert_allclose
 
 from posekit.skeleton import skeleton_registry, skeleton_converter
-from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, move_joint_closer_, \
+from posekit.skeleton.utils import assert_plausible_skeleton, joints_to_kcs, \
     absolute_to_root_relative, joints_to_limb_lengths, universal_orientation, is_pose_similar, \
     calculate_knee_neck_height
 
 
-def test_conversion_between_mpi3d_17j_and_h36m_17j():
-    joints1 = torch.randn(4, 17, 2)
-    joints2 = skeleton_converter.convert(joints1, 'mpi3d_17j', 'h36m_17j')
-    joints3 = skeleton_converter.convert(joints2, 'h36m_17j', 'mpi3d_17j')
-    assert_allclose(joints1, joints3)
-
-
-def test_conversion_between_posetrack_16j_and_h36m_17j():
-    joints1 = torch.randn(4, 16, 2)
-    joints2 = skeleton_converter.convert(joints1, 'posetrack_16j', 'h36m_17j')
-    joints3 = skeleton_converter.convert(joints2, 'h36m_17j', 'posetrack_16j')
-    assert_allclose(joints1, joints3)
+@pytest.mark.parametrize('src_skeleton_name,dest_skeleton_name', [
+    # Single-step.
+    ('mpi3d_17j', 'h36m_17j'),
+    ('posetrack_16j', 'h36m_17j'),
+    ('mpii_16j', 'h36m_17j'),
+    ('lsp_14j', 'lsp_15j'),
+    ('lsp_15j', 'mpii_16j'),
+    ('coco_17j', 'coco_19j'),
+    ('openpose_18j', 'coco_19j'),
+    ('posetrack_15j', 'posetrack_16j'),
+    # Multi-step.
+    ('lsp_14j', 'mpi3d_17j'),
+])
+def test_conversion_round_trip(src_skeleton_name, dest_skeleton_name):
+    src_skeleton = skeleton_registry[src_skeleton_name]
+    mat1 = skeleton_converter.conversion_matrix(src_skeleton_name, dest_skeleton_name)
+    mat2 = skeleton_converter.conversion_matrix(dest_skeleton_name, src_skeleton_name)
+    assert_allclose(mat1 @ mat2, np.eye(src_skeleton.n_joints))
 
 
 @pytest.mark.parametrize('src_skeleton_name', skeleton_registry._registry.keys())
@@ -31,6 +37,17 @@ def test_convert_to_canonical(src_skeleton_name):
     joints = torch.randn(skeleton.n_joints, 3)
     canonical_joints = skeleton_converter.convert(joints, src_skeleton_name, 'canonical')
     assert canonical_joints.shape == (17, 3)
+
+
+@pytest.mark.parametrize('dest_skeleton_name', skeleton_registry._registry.keys())
+def test_convert_from_canonical(dest_skeleton_name):
+    if dest_skeleton_name in {'h36m_32j', 'coco_17j', 'coco_19j', 'openpose_18j', 'openpose_25j',
+                              'mpi3d_28j', 'smpl_24j'}:
+        pytest.skip()
+    skeleton = skeleton_registry[dest_skeleton_name]
+    joints = torch.randn(17, 3)
+    canonical_joints = skeleton_converter.convert(joints, 'canonical', dest_skeleton_name)
+    assert canonical_joints.shape == (skeleton.n_joints, 3)
 
 
 def test_conversion_from_coco_17j_to_mpii_16j(coco_keypoints, coco_image):
@@ -58,6 +75,7 @@ def test_conversion_from_coco_17j_to_mpii_16j(coco_keypoints, coco_image):
     # draw_pose_on_image_(mpii_joints.numpy(), skeleton_registry['mpii_16j'], coco_image)
     # coco_image.show()
     assert_allclose(mpii_joints, expected, rtol=0, atol=8)
+    assert torch.is_tensor(mpii_joints)
 
 
 def test_assert_plausible_skeleton(annot2, skeleton):
@@ -69,19 +87,6 @@ def test_joints_to_kcs():
     skeleton = skeleton_registry['mpi3d_28j']
     kcs = joints_to_kcs(joints_3d, skeleton)
     assert_allclose(kcs, torch.zeros((5, 27, 3), dtype=torch.float64))
-
-
-def test_move_joint_closer(annot3, skeleton):
-    movement_ratio = 0.371
-    orig_left_ankle = annot3[skeleton.joint_index('left_ankle')]
-    head_top = annot3[skeleton.joint_index('head_top')]
-    annot3 = annot3.copy()
-    move_joint_closer_(annot3, skeleton, 'left_ankle', 'head_top', movement_ratio)
-    # Verify the change in distance between the joints.
-    moved_left_ankle = annot3[skeleton.joint_index('left_ankle')]
-    expected_dist = (1 - movement_ratio) * np.linalg.norm(orig_left_ankle - head_top)
-    actual_dist = np.linalg.norm(moved_left_ankle - head_top)
-    assert actual_dist == pytest.approx(expected_dist)
 
 
 def test_absolute_to_root_relative(annot3, skeleton):
