@@ -526,7 +526,6 @@ def convert_posetrack_15j_to_posetrack_16j(joints, from_skeleton, to_skeleton):
     dest_joints = _subset_of_joints(joints, from_skeleton, joint_names)
 
     move_joint_closer_(dest_joints, to_skeleton, 'pelvis', 'right_hip', 0.5)
-    move_joint_closer_(dest_joints, to_skeleton, 'neck', 'right_shoulder', 0.5)
 
     return dest_joints
 
