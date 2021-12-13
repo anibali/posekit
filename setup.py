@@ -11,6 +11,5 @@ setup(
     install_requires=[
         'numpy',
         'phx-class-registry',
-        'toolz',
     ]
 )
