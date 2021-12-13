@@ -67,9 +67,9 @@ class _ConversionRegistry:
         """
         assert_plausible_skeleton(joints, skeleton_registry[from_skeleton_name])
         mat = self.conversion_matrix(from_skeleton_name, to_skeleton_name)
-        new_joints = np.einsum('...ij,ik->...kj', np.asarray(joints, dtype=np.float32), mat)
+        new_joints = np.einsum('...ij,ik->...kj', np.asarray(joints), mat)
         if is_torch_tensor(joints):
-            new_joints = as_torch_tensor(new_joints)
+            new_joints = as_torch_tensor(new_joints).to(joints)
         return new_joints
 
 
