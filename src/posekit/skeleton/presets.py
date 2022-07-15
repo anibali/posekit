@@ -398,6 +398,52 @@ class Aspset17jSkeleton(Skeleton):
         )
 
 
+class Aspset21jSkeleton(Skeleton):
+    name = 'aspset_21j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'right_ankle',      'right_knee',       'right_hip',
+                'right_wrist',      'right_elbow',      'right_shoulder',
+                'left_ankle',       'left_knee',        'left_hip',
+                'left_wrist',       'left_elbow',       'left_shoulder',
+                'head_top',         'head',             'neck',
+                'spine',            'pelvis',           'right_toe_base',
+                'right_heel',       'left_toe_base',    'left_heel',
+            ],
+            joint_tree=[
+                1, 2, 16, 4, 5, 14,
+                7, 8, 16, 10, 11, 14,
+                13, 14, 15, 16, 16,
+                18, 0, 20, 6,
+            ],
+            hflip_indices=[
+                6, 7, 8, 9, 10, 11,
+                0, 1, 2, 3, 4, 5,
+                12, 13, 14, 15, 16,
+                19, 20, 17, 18,
+            ]
+        )
+
+
+class AspsetFeet4jSkeleton(Skeleton):
+    name = 'aspsetfeet_4j'
+
+    def __init__(self):
+        super().__init__(
+            joint_names=[
+                'right_toe_base', 'right_heel', 'left_toe_base', 'left_heel',
+            ],
+            joint_tree=[
+                1, 1, 3, 3
+            ],
+            hflip_indices=[
+                2, 3, 0, 1
+            ]
+        )
+
+
 class Lsp14jSkeleton(Skeleton):
     name = 'lsp_14j'
 
@@ -600,6 +646,10 @@ def _create_conversion_matrices():
         'head_top': {'left_ear': (1 + c) * 0.5, 'right_ear': (1 + c) * 0.5, 'neck': -c},
     })
     np.matmul(mat, _tweak_joint_position(skeleton_registry['h36m_17j'], 'neck', 'head_top', 0.8), out=mat)
+
+    skeleton_converter.create_matrix('aspset_21j', 'aspset_17j')
+
+    skeleton_converter.create_matrix('aspset_21j', 'aspsetfeet_4j')
 
     skeleton_converter.create_matrix('mpii_16j', 'aspset_17j', joint_map={
         'head': {'head_top': 0.33, 'neck': 1 - 0.67},
